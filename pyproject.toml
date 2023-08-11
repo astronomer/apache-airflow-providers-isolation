@@ -3,37 +3,126 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "airflow-provider-sample"
+name = "apache-airflow-providers-isolation"
 authors = [
-    {name = "Pete DeJoy", email = "pete@astronomer.io"},
-    {name = "Josh Fell", email = "josh.d.fell@astronomer.io"},
+    {name = "Fritz Davenport", email = "fritz@astronomer.io"}
 ]
 license = {text = "Apache License 2.0"}
-description = "A sample Apache Airflow provider package built by Astronomer."
+description = "Runtime Operator Isolation in Airflow"
 classifiers = [
     "Framework :: Apache Airflow",
     "Framework :: Apache Airflow :: Provider",
 ]
 dynamic = ["version"]
-requires-python = "~=3.8"
-dependencies = ["apache-airflow>=2.4"]
+requires-python = "~=3.10"
+dependencies = [
+    "apache-airflow>=2.5",
+    'apache-airflow-providers-cncf-kubernetes'
+]
+
+[project.optional-dependencies]
+dev = [
+    'pytest',
+    'pytest-cov',
+    'pytest-dotenv',
+    'detect-secrets',
+    'ruff',
+    'black',
+    'bandit',
+    'isort[colors]',
+    'pre-commit',
+    'pre-commit-hooks',
+    'pylint'
+]
+
+kubernetes = ['apache-airflow-providers-cncf-kubernetes']
+docker = ['apache-airflow-providers-docker']
+fargate = ['apache-airflow-providers-amazon']
+python = ['apache-airflow']
+
+all = [
+    'apache-airflow-providers-cncf-kubernetes',
+    'apache-airflow-providers-docker',
+    'apache-airflow-providers-amazon',
+    'apache-airflow'
+]
 
 [project.urls]
 Homepage = "https://astronomer.io"
-Source = "https://github.com/astronomer/airflow-provider-sample/"
+Source = "https://github.com/astronomer/apache-airflow-providers-isolation/"
 
 [project.readme]
 file = "README.md"
 content-type = "text/markdown"
 
 [project.entry-points.apache_airflow_provider]
-provider_info = "sample_provider.__init__:get_provider_info"
+provider_info = "isolation.__init__:get_provider_info"
 
 [tool.setuptools]
 include-package-data = false
 
 [tool.setuptools.dynamic]
-version = {attr = "sample_provider.__version__"}
+version = {attr = "isolation.__version__"}
 
 [tool.setuptools.packages.find]
 exclude = ["*tests.*", "*tests"]
+
+[tool.black]
+# https://github.com/psf/black
+target-version = ["py310"]
+line-length = 88
+color = true
+
+exclude = '''
+/(
+    \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | env
+    | venv
+    | tests/
+)/
+'''
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = [
+  "B324",
+  "B608",
+  "B106"
+]
+
+
+[tool.isort]
+# https://github.com/timothycrosley/isort/
+py_version = 310
+line_length = 88
+
+known_typing = ["typing", "types", "typing_extensions", "mypy", "mypy_extensions"]
+sections = ["FUTURE", "TYPING", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+include_trailing_comma = true
+profile = "black"
+multi_line_output = 3
+indent = 4
+color_output = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+norecursedirs = ["dags", "tests/resources/", "hooks", "*.egg", ".eggs", "dist", "build", "docs", ".tox", ".git", "__pycache__"]
+testpaths = ["tests"]
+
+doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+addopts = [
+  "--continue-on-collection-errors",
+  "--strict-markers",
+  "--tb=short",
+  "--disable-warnings",
+  "--no-header",
+  "--doctest-modules",
+  "--doctest-continue-on-failure",
+]
