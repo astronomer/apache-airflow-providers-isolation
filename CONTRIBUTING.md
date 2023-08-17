@@ -18,7 +18,12 @@ pip install -e '.[dev]'
 ```
 
 ## Testing
-- `pytest`
+This project utilizes [Doctests](https://docs.python.org/3/library/doctest.html) and `pytest`
+- run all tests with `pytest`
+
+[//]: # (### TESTING NOTE)
+[//]: # (This project utilizes `pytest-xdist` which interferes with test output and debuggers. Please disable it if you need either of these functionalities.)
+[//]: # (Read more here: https://pytest-xdist.readthedocs.io/en/stable/known-limitations.html#output-stdout-and-stderr-from-workers)
 
 
 ## Documentation Standards

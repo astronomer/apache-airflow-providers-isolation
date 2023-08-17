@@ -2,29 +2,52 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = { attr = "isolation.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["isolation*"]
+exclude = [
+    "*venv", "*venv.*",
+    "*tests.*", "*tests",
+    "*build", "*build.*",
+    "*dist", "*dist.*"
+]
+
 [project]
 name = "apache-airflow-providers-isolation"
 authors = [
-    {name = "Fritz Davenport", email = "fritz@astronomer.io"}
+    { name = "Fritz Davenport", email = "fritz@astronomer.io" }
 ]
-license = {text = "Apache License 2.0"}
+license = { text = "Apache License 2.0" }
 description = "Runtime Operator Isolation in Airflow"
 classifiers = [
     "Framework :: Apache Airflow",
     "Framework :: Apache Airflow :: Provider",
 ]
 dynamic = ["version"]
-requires-python = "~=3.10"
+requires-python = ">=3.9,<3.12"
 dependencies = [
-    "apache-airflow>=2.5",
+    "apache-airflow>=2.3,<2.7",
     'apache-airflow-providers-cncf-kubernetes'
 ]
 
+[project.entry-points.apache_airflow_provider]
+provider_info = "isolation.__init__:get_provider_info"
+
 [project.optional-dependencies]
 dev = [
+    'build',
+    'pytest-sugar',
     'pytest',
     'pytest-cov',
     'pytest-dotenv',
+    'pytest-integration',
+    'pytest-env',
+#    'pytest-xdist',
     'detect-secrets',
     'ruff',
     'black',
@@ -32,7 +55,9 @@ dev = [
     'isort[colors]',
     'pre-commit',
     'pre-commit-hooks',
-    'pylint'
+    'pylint',
+    'docker',
+    'kubernetes',
 ]
 
 kubernetes = ['apache-airflow-providers-cncf-kubernetes']
@@ -55,22 +80,15 @@ Source = "https://github.com/astronomer/apache-airflow-providers-isolation/"
 file = "README.md"
 content-type = "text/markdown"
 
-[project.entry-points.apache_airflow_provider]
-provider_info = "isolation.__init__:get_provider_info"
+[tool.ruff]
+# Allow lines to be as long as 120 characters.
+line-length = 120
 
-[tool.setuptools]
-include-package-data = false
-
-[tool.setuptools.dynamic]
-version = {attr = "isolation.__version__"}
-
-[tool.setuptools.packages.find]
-exclude = ["*tests.*", "*tests"]
 
 [tool.black]
 # https://github.com/psf/black
 target-version = ["py310"]
-line-length = 88
+line-length = 120
 color = true
 
 exclude = '''
@@ -92,9 +110,9 @@ exclude = '''
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = [
-  "B324",
-  "B608",
-  "B106"
+    "B324",
+    "B608",
+    "B106"
 ]
 
 
@@ -113,16 +131,23 @@ color_output = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-norecursedirs = ["dags", "tests/resources/", "hooks", "*.egg", ".eggs", "dist", "build", "docs", ".tox", ".git", "__pycache__"]
-testpaths = ["tests"]
+norecursedirs = ["dags", "*.egg", ".eggs", "dist", "build", "docs", ".tox", ".git", "__pycache__"]
+testpaths = ["tests", "isolation"]
+
+env = [
+    # for some reason Airflow kept erroring and saying we didn't have a google secrets backend?
+    "AIRFLOW__SECRETS__BACKEND="
+]
 
 doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 addopts = [
-  "--continue-on-collection-errors",
-  "--strict-markers",
-  "--tb=short",
-  "--disable-warnings",
-  "--no-header",
-  "--doctest-modules",
-  "--doctest-continue-on-failure",
+    "--continue-on-collection-errors",
+    "--ignore=tests/resources",
+#    "--numprocesses=auto", # remove this to remove python-xdist or --dist no
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+    "--no-header",
+    "--doctest-modules",
+    "--doctest-continue-on-failure",
 ]
