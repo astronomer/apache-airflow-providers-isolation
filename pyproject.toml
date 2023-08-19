@@ -60,6 +60,8 @@ dev = [
     'pylint',
     'docker',
     'kubernetes',
+    'click',
+    'sh'
 ]
 
 kubernetes = ['apache-airflow-providers-cncf-kubernetes']
