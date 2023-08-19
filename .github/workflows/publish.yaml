@@ -1,0 +1,25 @@
+name: Publish to PyPi
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+#    environment:
+#      name: pypi
+#      url: https://pypi.org/p/apache-airflow-providers-isolation
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    - run: |
+        python -m pip install --upgrade pip
+        pip install build
+    - run: python -m build
+    - uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
