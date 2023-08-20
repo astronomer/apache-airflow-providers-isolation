@@ -8,6 +8,11 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    #    environment:
+    #      name: testpypi
+    #      url: https://test.pypi.org/legacy/p/apache-airflow-providers-isolation
+#    permissions:
+#      id-token: write
     steps:
     - name: Create Draft Release
       uses: softprops/action-gh-release@v1
@@ -17,3 +22,16 @@ jobs:
         draft: true
         prerelease: false
         generate_release_notes: true
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    - run: |
+        python -m pip install --upgrade pip
+        pip install build
+    - run: python -m build
+    - uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        skip-existing: true
