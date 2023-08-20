@@ -1,30 +1,48 @@
 # Contributing
+This project welcomes contributions. All Pull Requests should include proper testing, documentation, and follow all existing checks and practices.
 
-## Pre-commit
+<!-- TOC -->
+* [Contributing](#contributing)
+  * [Versioning](#versioning)
+  * [Development](#development)
+    * [Pre-Commit](#pre-commit)
+    * [Installing Locally](#installing-locally)
+  * [Linting](#linting)
+  * [Testing](#testing)
+  * [Documentation Standards](#documentation-standards)
+    * [Inline Module Documentation](#inline-module-documentation)
+  * [Functional Testing Standards](#functional-testing-standards)
+  * [Publishing your Provider repository for the Astronomer Registry](#publishing-your-provider-repository-for-the-astronomer-registry)
+<!-- TOC -->
+
+## Versioning
+- This project follows [Semantic Versioning](https://semver.org/)
+
+## Development
+### Pre-Commit
 - This project uses pre-commit
 - Install it with
 ```shell
 pre-commit install
 ```
 
-## Installing Locally
-- Just the base project
+### Installing Locally
+Install just the base project with:
 ```shell
 pip install -e '.'
 ```
-- With extras such as `dev`
+
+Install with extras such as `dev` or `cli`:
 ```shell
-pip install -e '.[dev]'
+pip install -e '.[dev,cli]'
 ```
 
+## Linting
+This project uses [`black` (link)](https://black.readthedocs.io/en/stable/), [`blacken-docs` (link)](https://github.com/adamchainz/blacken-docs), and [`ruff` (link)](https://beta.ruff.rs/). They run with pre-commit but you can run them directly with `ruff check .` in the root.
+
 ## Testing
-This project utilizes [Doctests](https://docs.python.org/3/library/doctest.html) and `pytest`
-- run all tests with `pytest`
-
-[//]: # (### TESTING NOTE)
-[//]: # (This project utilizes `pytest-xdist` which interferes with test output and debuggers. Please disable it if you need either of these functionalities.)
-[//]: # (Read more here: https://pytest-xdist.readthedocs.io/en/stable/known-limitations.html#output-stdout-and-stderr-from-workers)
-
+This project utilizes [Doctests](https://docs.python.org/3/library/doctest.html) and `pytest`.
+With the `dev` extras installed, you can run all tests with `pytest` in the root of the project. It will automatically pick up it's configuration in `pyproject.toml`
 
 ## Documentation Standards
 
@@ -32,20 +50,10 @@ Creating excellent documentation is essential for explaining the purpose of your
 
 ### Inline Module Documentation
 
-Every Python module, including all hooks, operators, sensors, and transfers, should be documented inline via [sphinx-templated docstrings](https://pythonhosted.org/an_example_pypi_project/sphinx.html). These docstrings should be included at the top of each module file and contain three sections separated by blank lines:
+Every Python module, including all hooks, operators, sensors, and transfers, should be documented inline. These docstrings should be included at the top of each module file and contain three sections separated by blank lines:
 - A one-sentence description explaining what the module does.
-- A longer description explaining how the module works. This can include details such as code blocks or blockquotes. For more information Sphinx markdown directives, read the [Sphinx documentation](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block).
+- A longer description explaining how the module works. This can include details such as code blocks or blockquotes.
 - A declarative definition of parameters that you can pass to the module, templated per the example below.
-
-### README
-
-The README for your provider package should give users an overview of what your provider package does. Specifically, it should include:
-
-- High-level documentation about the provider's service.
-- Steps for building a connection to the service from Airflow.
-- What modules exist within the package.
-- An exact set of dependencies and versions that your provider has been tested with.
-- Guidance for contributing to the provider package.
 
 ## Functional Testing Standards
 

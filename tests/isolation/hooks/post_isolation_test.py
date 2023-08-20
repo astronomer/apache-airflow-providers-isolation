@@ -1,30 +1,17 @@
-import inspect
 import sys
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor, FIRST_EXCEPTION, Future
 from pathlib import Path
-from textwrap import dedent
-from typing import Callable, Optional, Dict, List, Any
+from typing import Optional, Dict, List
 
 import pytest
 from docker import DockerClient
 from docker.errors import ContainerError
 
-# noinspection PyProtectedMember
-from isolation.hooks.post_isolation import _b64encode_json, XCOM_FILE
-
-
-def get_env(
-    op_qualname: str,
-    kwargs: Optional[Dict[str, Any]] = None,
-    context: Optional[Dict[str, Any]] = None,
-):
-    """Returns a dict that gets passed to the Docker Container as it's `environment`"""
-    return {
-        "__ISOLATED_OPERATOR_OPERATOR_QUALNAME": op_qualname,
-        "__ISOLATED_OPERATOR_OPERATOR_ARGS": _b64encode_json({"args": [], "kwargs": kwargs}) if kwargs else "",
-        "__ISOLATED_OPERATOR_AIRFLOW_CONTEXT": _b64encode_json(context) if context else "",
-    }
+from isolation.hooks.post_isolation import XCOM_FILE
+from isolation.operators.isolation_kubernetes import run_in_pod, fn_to_source_code
+from isolation.util import get_isolated_operator_env
+from tests.conftest import manual_tests
 
 
 def skip_no_docker(has_docker):
@@ -33,28 +20,16 @@ def skip_no_docker(has_docker):
         pytest.skip("skipped, no docker")
 
 
-# Micro-fn to inject this python into the container
-def _run_in_pod():
-    from isolation.hooks.post_isolation import PostIsolationHook
-
-    print(PostIsolationHook.run_isolated_task())
-
-
-def fn_to_source_code(fn: Callable):
-    return "".join(dedent(line) for line in inspect.getsourcelines(fn)[0][1:])
-
-
 def run_in_an_airflow_container(
     docker_client: DockerClient,
     project_root: Path,
     dist_file: Path,
     image: str,
-    fn: Callable,
     env: Optional[Dict[str, str]] = None,
     extra_volumes: Optional[List[str]] = None,
 ):
     """Run PostIsolationHook.run_isolated_task in the given image,
-    with a environment and extra_volumes
+    with an environment and extra_volumes
     Writes the docker container logs (after it's finished) to stdout
     returns the logs as an object, to look for strings against
     """
@@ -63,11 +38,12 @@ def run_in_an_airflow_container(
     if extra_volumes is None:
         extra_volumes = []
 
+    # noinspection SpellCheckingInspection
     logs = docker_client.containers.run(
         image=image,
         stderr=True,
         remove=True,
-        command=f"""'pip install ./{dist_file.name} && """ f"""python -c "{fn_to_source_code(fn)}" '""",
+        command=f"""'pip install ./{dist_file.name} && """ f"""python -c "{fn_to_source_code(run_in_pod)}" '""",
         volumes=[
             f"{dist_file}:/usr/local/airflow/{dist_file.name}",
             f"{project_root}/xcom:{Path(XCOM_FILE).parent}",
@@ -81,7 +57,7 @@ def run_in_an_airflow_container(
     return logs
 
 
-@pytest.mark.slow_integration_test
+@manual_tests
 def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image, has_docker):
     """Mega test that runs a test-matrix in a threadpool against
     different versions of Astro Runtime
@@ -107,30 +83,29 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
     """
     skip_no_docker(has_docker)
 
-    # JUST INSTALL
+    # TEST IS INSTALLABLE
     with pytest.raises(
         ContainerError,
         match="RuntimeError: __ISOLATED_OPERATOR_OPERATOR_QUALNAME must be set!",
     ):
-        logs = run_in_an_airflow_container(docker_client, project_root, dist_file, runtime_image, _run_in_pod)
+        logs = run_in_an_airflow_container(docker_client, project_root, dist_file, runtime_image)
         sys.stdout.write(logs.decode())
         assert True, "We get log output when we install the operator " "in the container and launch it"
 
     # Tuple keys: magic_string, env, extra_volumes, reason
     test_matrix = [
-        # BASH OPERATOR
+        # TEST BASH OPERATOR
         (
             b"%%%%hi%%%%",
-            get_env(
-                "airflow.operators.bash.BashOperator",
-                kwargs={"bash_command": "echo '%%%%hi%%%%'"},
+            get_isolated_operator_env(
+                "airflow.operators.bash.BashOperator", kwargs={"bash_command": "echo '%%%%hi%%%%'"}
             ),
             [],
             "We ran a bash operator and saw the expected output in the task logs",
         ),
         (
             b"%%%%hi%%%%",
-            get_env(
+            get_isolated_operator_env(
                 "airflow.operators.bash.BashOperator",
                 kwargs={"bash_command": "echo '{{ params.foo }}'"},
                 context={"params": {"foo": "%%%%hi%%%%"}},
@@ -138,10 +113,10 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
             [],
             "We ran a bash operator and got our output in task logs via {{ params }}",
         ),
-        # PYTHON OPERATOR
+        # TEST PYTHON OPERATOR
         (
             b"%%%%hi-print_magic_string_test_direct%%%%",
-            get_env(
+            get_isolated_operator_env(
                 "airflow.operators.python.PythonOperator",
                 kwargs={"_python_callable_qualname": "dags.fn.direct.print_magic_string_test_direct"},
             ),
@@ -150,7 +125,7 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
         ),
         (
             b"%%%%hi-print_other_magic_string_outer%%%%",
-            get_env(
+            get_isolated_operator_env(
                 "airflow.operators.python.PythonOperator",
                 kwargs={"_python_callable_qualname": "dags.fn.outer.print_other_magic_string_test_outer"},
             ),
@@ -163,7 +138,7 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
         ),
         (
             b"%%%%hi-print_other_magic_string_inner%%%%",
-            get_env(
+            get_isolated_operator_env(
                 "airflow.operators.python.PythonOperator",
                 kwargs={"_python_callable_qualname": "dags.fn.inner.print_other_magic_string_test_inner"},
             ),
@@ -177,7 +152,7 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
         ),
         (
             b"%%%%hi- {'foo': 'print_magic_string_test_params%%%%'}",
-            get_env(
+            get_isolated_operator_env(
                 "airflow.operators.python.PythonOperator",
                 kwargs={
                     "_python_callable_qualname": "dags.fn.direct.print_params",
@@ -192,24 +167,17 @@ def test_run_in_pod_docker(dist_file, project_root, docker_client, runtime_image
             "and params for our magic string",
         ),
     ]
-
-    def run_test_in_matrix(matrix_config):
-        _magic_string, _env, _volumes, _reason = matrix_config
-        _actual = run_in_an_airflow_container(
-            docker_client,
-            project_root,
-            dist_file,
-            runtime_image,
-            _run_in_pod,
-            _env,
-            extra_volumes=_volumes,
-        )
-        assert _magic_string in _actual, _reason
-
     with ThreadPoolExecutor() as executor:
+
+        def run_test_in_matrix(matrix_config):
+            _magic_string, _env, _volumes, _reason = matrix_config
+            _actual = run_in_an_airflow_container(
+                docker_client, project_root, dist_file, runtime_image, _env, extra_volumes=_volumes
+            )
+            assert _magic_string in _actual, _reason
+
         tests = [executor.submit(run_test_in_matrix, test) for test in test_matrix]
-        done, _ = futures.wait(tests, return_when=FIRST_EXCEPTION)
-        for test in done:
+        for test in futures.wait(tests, return_when=FIRST_EXCEPTION)[0]:
             test: Future
             if test.exception():
                 raise test.exception()

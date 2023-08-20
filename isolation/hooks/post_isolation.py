@@ -1,56 +1,18 @@
-import base64
-import binascii
 import itertools
-import json
-import os
 from copy import copy
-from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, Type, Tuple, List, Optional
 import re
 
+from isolation.util import (
+    b64decode_json,
+    getenv_or_raise,
+    get_and_check_airflow_version,
+    validate_operator_is_operator,
+    import_from_qualname,
+)
+
 XCOM_FILE = "/airflow/xcom/return.json"
-
-
-def _b64encode_json(d: Dict[str, Any]) -> str:
-    """helper utility to encode a dict to a b64 string
-    >>> _b64encode_json({"foo": "bar"})
-    'eyJmb28iOiAiYmFyIn0='
-    """
-    return base64.b64encode(json.dumps(d, default=str).encode()).decode()
-
-
-def _b64decode_json(s: str) -> Dict[str, Any]:
-    """helper utility to decode a b64 to a json dict
-    >>> _b64decode_json('eyJmb28iOiAiYmFyIn0=')
-    {'foo': 'bar'}
-    >>> _b64decode_json("garbage")   # Garbage - not b64
-    Traceback (most recent call last):
-        ...
-    RuntimeError: Input is not encoded correctly as base64! Got: garbage . Cannot proceed!
-    >>> _b64decode_json("{{}") # Garbage - not json
-    Traceback (most recent call last):
-        ...
-    RuntimeError: Input is not encoded correctly as json! Got: b'' . Cannot proceed!
-    """
-    try:
-        decoded_j = base64.b64decode(s)
-        return json.loads(decoded_j)
-    except binascii.Error:
-        raise RuntimeError(
-            f"Input is not encoded correctly as base64! " f"Got: {s} . Cannot proceed!",
-        )
-    except json.decoder.JSONDecodeError:
-        # noinspection PyUnboundLocalVariable
-        raise RuntimeError(
-            f"Input is not encoded correctly as json! " f"Got: {decoded_j} from '{s}'. Cannot proceed!",
-        )
-
-
-def _getenv_or_raise(key):
-    if key not in os.environ:
-        raise RuntimeError(f"{key} must be set!")
-    return os.getenv(key)
 
 
 def _verify_kwargs(kwargs: Dict[str, Any]):
@@ -67,31 +29,34 @@ def _verify_kwargs(kwargs: Dict[str, Any]):
     kwargs["do_xcom_push"] = False
 
 
-def _get_operator_args_from_env() -> Tuple[List[Any], Dict[str, Any]]:
+def _get_operator_args_via_env() -> Tuple[List[Any], Dict[str, Any]]:
+    # noinspection PyUnresolvedReferences, PyProtectedMember
     """Return *args and **kwargs for the operator,
     encoded as {"args":args,"kwargs":kwargs} as a b64 encoded json
 
-    >>> import datetime, base64, json; _get_operator_args_from_env()   # Unset
+    :raises: RuntimeError if extracted args is not a list
+    :raises: RuntimeError if extracted kwargs is not a dict
+    >>> from isolation.util import b64encode_json; import datetime, base64, json, os
+    >>> _get_operator_args_via_env()  # Unset
     Traceback (most recent call last):
         ...
     RuntimeError: __ISOLATED_OPERATOR_OPERATOR_ARGS must be set!
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = ""; _get_operator_args_from_env()   # Empty
+    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = ""; _get_operator_args_via_env()   # Empty
     ([], {})
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = _b64encode_json(
+    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = b64encode_json(
     ...     {"args":["foo", 1], "kwargs":{"a": 1, "b": 2, "c": datetime.datetime(1970, 1, 1)}},
-    ... ); _get_operator_args_from_env()   # Happy Path
+    ... ); _get_operator_args_via_env()   # Happy Path
     (['foo', 1], {'a': 1, 'b': 2, 'c': '1970-01-01 00:00:00'})
-
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = _b64encode_json(
+    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = b64encode_json(
     ...     {"args": [], "kwargs": {}}
-    ... ); _get_operator_args_from_env()   # Happy & Empty
+    ... ); _get_operator_args_via_env()   # Happy & Empty
     ([], {})
     """
-    key = PostIsolationHook.required_environment_variables[_get_operator_args_from_env.__name__]
-    encoded_args_json = _getenv_or_raise(key)
+    key = PostIsolationHook.required_environment_variables[_get_operator_args_via_env.__name__]
+    encoded_args_json = getenv_or_raise(key)
     if not encoded_args_json:
         return [], {}
-    args_json = _b64decode_json(encoded_args_json)
+    args_json = b64decode_json(encoded_args_json)
     args, kwargs = args_json["args"], args_json["kwargs"]
     if args is None:
         args = []
@@ -106,39 +71,38 @@ def _get_operator_args_from_env() -> Tuple[List[Any], Dict[str, Any]]:
     return args, kwargs
 
 
-# noinspection PyUnresolvedReferences
-def _get_context_from_env() -> "Context":  # noqa: F821
+def _get_context_via_env() -> "Context":  # noqa: F821
+    # noinspection PyUnresolvedReferences,PyTrailingSemicolon
     """Retrieve a json-serialized version of a subset
     of the Airflow Context object and recreate
-
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = _b64encode_json(
+    >>> from isolation.util import b64encode_json; import os
+    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
     ...     {}
-    ... ); r = _get_context_from_env(); r['params'], type(r['ds']) # Empty
+    ... ); r = _get_context_via_env(); r['params'], type(r['ds']) # Empty
     ({}, <class 'pendulum.datetime.DateTime'>)
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = ''; r = _get_context_from_env(
-    ... ); r['params'], type(r['ds']) # Empty
+    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = ''; r = _get_context_via_env(); r['params'], type(r['ds'])
     ({}, <class 'pendulum.datetime.DateTime'>)
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = _b64encode_json(
+    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
     ...     {"ds": "foo"}
-    ... ); r = _get_context_from_env() # bad de-ser data
+    ... ); r = _get_context_via_env() # bad de-ser data
     Traceback (most recent call last):
         ...
     pendulum.parsing.exceptions.ParserError: Unable to parse string [foo]
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = _b64encode_json(
+    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
     ...     {"params": {"foo": "bar"}}
-    ... ); r = _get_context_from_env(); r['params'], type(r['params'])  # good params data
+    ... ); r = _get_context_via_env(); r['params'], type(r['params'])  # good params data
     ({'foo': 'bar'}, <class 'airflow.models.param.ParamsDict'>)
     """
     from airflow.utils.context import Context
     import pendulum
     from airflow.models.param import ParamsDict
 
-    key = PostIsolationHook.required_environment_variables[_get_context_from_env.__name__]
-    encoded_context_json = _getenv_or_raise(key)
-    context_json = _b64decode_json(encoded_context_json) if encoded_context_json != "" else {}
+    key = PostIsolationHook.required_environment_variables[_get_context_via_env.__name__]
+    encoded_context_json = getenv_or_raise(key)
+    context_json = b64decode_json(encoded_context_json) if encoded_context_json != "" else {}
 
     required_keys = ["ds", "params"]
-    serialization_mappings = {
+    context_serialization_mappings = {
         # Key:  (default-fn,  mapping-fn)
         "params": (dict, ParamsDict),
         "ds": (pendulum.now, pendulum.parse),
@@ -146,64 +110,38 @@ def _get_context_from_env() -> "Context":  # noqa: F821
     # we check over both what we got AND the required ones
     for k in set(itertools.chain(context_json.keys(), required_keys)):
         if k in context_json:  # if it's one of the ones we got
-            if k in serialization_mappings:  # and if we have a mapping
-                context_json[k] = serialization_mappings[k][1](context_json[k])  # map it
+            if k in context_serialization_mappings:  # and if we have a mapping
+                context_json[k] = context_serialization_mappings[k][1](context_json[k])  # map it
             else:  # else we got it, but
                 pass  # it's fine as-is
         else:  # if it's required, wasn't given, and needs to be defaulted
-            context_json[k] = serialization_mappings[k][0]()  # default it
+            context_json[k] = context_serialization_mappings[k][0]()  # default it
     return Context(**context_json)
 
 
-def _import_from_qualname(qualname):
-    """Turn a.b.c.d.MyOperator into the actual python version"""
-    # split out - a.b.c.d, MyOperator
-    [module, name] = qualname.rsplit(".", 1)
-    # import a.b.c.d
-    imported_module = import_module(module)
-    # return a.b.c.d.MyOperator
-    return getattr(imported_module, name)
-
-
-def _get_operator_from_env() -> Type["BaseOperator"]:  # noqa: F821
+def _get_operator_via_env() -> Type["BaseOperator"]:  # noqa: F821
     """Instantiate the operator via the qualified name saved in __ISOLATED_OPERATOR_OPERATOR_QUALNAME
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_QUALNAME']="datetime.datetime"; _get_operator_from_env()
+    >>> import os
+    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_QUALNAME']="datetime.datetime"; _get_operator_via_env()
     <class 'datetime.datetime'>
     """
     # Sanity check - __ISOLATED_OPERATOR_OPERATOR_QUALNAME=a.b.c.d.MyOperator
-    key = PostIsolationHook.required_environment_variables[_get_operator_from_env.__name__]
-    operator_qualname = _getenv_or_raise(key)
+    key = PostIsolationHook.required_environment_variables[_get_operator_via_env.__name__]
+    operator_qualname = getenv_or_raise(key)
     # split out - a.b.c.d, MyOperator
-    return _import_from_qualname(operator_qualname)
+    return import_from_qualname(operator_qualname)
 
 
-def _validate_operator_is_operator(operator) -> None:
-    """make sure the "operator" we were given is an Operator, e.g BashOperator
-    >>> from airflow.operators.bash import BashOperator; _validate_operator_is_operator(BashOperator)  # happy path
-    >>> class MyOperator(BashOperator):
-    ...    pass
-    >>> _validate_operator_is_operator(MyOperator)  # happy path with a custom operator
-    >>> _validate_operator_is_operator(dict) # non-operators don't parse
-    Traceback (most recent call last):
-    ...
-    RuntimeError: <class 'dict'> must be a subclass of <class 'airflow.models.baseoperator.BaseOperator'>
-    """
-    from airflow.models import BaseOperator
-
-    if not issubclass(operator, BaseOperator):
-        raise RuntimeError(f"{operator} must be a subclass of {BaseOperator}")
-
-
-def _patch_task_dependencies(task) -> iter:
+def _patch_task_dependencies(task) -> None:
     """We overwrite the method to avoid the DB call"""
 
-    def blackhole():
+    def blackhole() -> iter:
         return iter([])
 
     task.iter_mapped_dependants = blackhole
 
 
-def _patch_post_execute_for_xcom(task):
+def _patch_post_execute_for_xcom(task) -> None:
     """Patch the 'task.post_execute' method - write a xcom then run the original"""
     original_fn = task.post_execute
 
@@ -218,29 +156,29 @@ def _patch_post_execute_for_xcom(task):
     task.post_execute = new_fn
 
 
-def _patch_clear_xcom_data(task_instance):
+def _patch_clear_xcom_data(task_instance) -> None:
     """Patch the 'task_instance.clear_xcom_data' method - just respond immediately, skip DB"""
 
-    def blackhole():
+    def blackhole() -> None:
         return
 
     task_instance.clear_xcom_data = blackhole
 
 
-def _maybe_qualname(key: str) -> Optional[str]:
-    """
-    >>> _maybe_qualname("_xyz_qualname")
+def _get_callable_qualname(key: str) -> Optional[str]:
+    """We should be getting xyz_callable as _xyz_callable_qualname - find and return if so
+    >>> _get_callable_qualname("_xyz_qualname")
     'xyz'
-    >>> _maybe_qualname("_python_callable_qualname")
+    >>> _get_callable_qualname("_python_callable_qualname")
     'python_callable'
-    >>> _maybe_qualname("definitely_not_python_callable")
-    >>> _maybe_qualname("bash_command")
+    >>> _get_callable_qualname("definitely_not_python_callable")
+    >>> _get_callable_qualname("bash_command")
     """
     maybe_match = re.match(pattern="[_](.*)(?=_qualname)", string=key)
     return maybe_match.group(1) if maybe_match is not None else None
 
 
-def _transform_args(args: List[Any], kwargs: Dict[str, Any]):
+def _transform_args(args: List[Any], kwargs: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
     """
     Look for anything like '_xyz_qualname' or '_python_callable_qualname' in the kwargs, remap it to a fn
     >>> _transform_args([], {
@@ -250,7 +188,7 @@ def _transform_args(args: List[Any], kwargs: Dict[str, Any]):
     """
     dict_keys = copy(list(kwargs.keys()))
     for key in dict_keys:
-        maybe_qualname_key = _maybe_qualname(key)
+        maybe_qualname_key = _get_callable_qualname(key)
         if maybe_qualname_key:
             # save whatever the callable is
             qualname = kwargs[key]
@@ -259,62 +197,47 @@ def _transform_args(args: List[Any], kwargs: Dict[str, Any]):
             del kwargs[key]
 
             # set "python_callable"
-            kwargs[maybe_qualname_key] = _import_from_qualname(qualname)
+            kwargs[maybe_qualname_key] = import_from_qualname(qualname)
     return args, kwargs
-
-
-def get_and_check_airflow_version() -> float:
-    from airflow import __version__
-
-    # normalize 2.2.5+astro.6 to 2.2.5
-    [version, _] = __version__.rsplit("+", 1)
-    # normalize 2.2.5 to 2.2
-    [major_minor, _] = version.rsplit(".", 1)
-    major, minor = major_minor.split(".")
-    af_version = float(major_minor)
-    if int(major) != 2:
-        raise RuntimeError("PostIsolationHook only works with Airflow 2.x!")
-    return af_version
 
 
 class PostIsolationHook:
     required_environment_variables = {
-        _get_operator_from_env.__name__: "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
-        _get_operator_args_from_env.__name__: "__ISOLATED_OPERATOR_OPERATOR_ARGS",
-        _get_context_from_env.__name__: "__ISOLATED_OPERATOR_AIRFLOW_CONTEXT",
+        _get_operator_via_env.__name__: "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
+        _get_operator_args_via_env.__name__: "__ISOLATED_OPERATOR_OPERATOR_ARGS",
+        _get_context_via_env.__name__: "__ISOLATED_OPERATOR_AIRFLOW_CONTEXT",
     }
 
     # noinspection PyMethodMayBeStatic
     @classmethod
-    def run_isolated_task(cls):
+    def run_isolated_task(cls) -> None:
         """Run an Isolated Airflow Task inside a Container
         1) get operator from ENV VAR - e.g. __ISOLATED_OPERATOR_OPERATOR_QUALNAME=a.b.c.d.MyOperator
         2) get args/kwargs from ENV VAR - e.g. __ISOLATED_OPERATOR_OPERATOR_ARGS=<b64 {"args": [], "kwargs": {}}
-        3) get Airflow Context from ENV VAR
+        3) get Airflow Context from ENV VAR e.g. __ISOLATED_OPERATOR_AIRFLOW_CONTEXT=<b64 {"ds": "1970-01-01", ...}
         4) Execute the Operator with args/kwargs, hijack task.post_execute to write the XCOM
         """
         from airflow.models.taskinstance import set_current_context, TaskInstance
 
-        required_task_args = {"run_id": "RUNID", "state": "running"}
-
+        # Do some sanity checks - check that we are using AF2.x
+        # returns the AF major.minor version if we need to check compatability later
         get_and_check_airflow_version()
 
-        operator = _get_operator_from_env()
-        _validate_operator_is_operator(operator)
+        operator = _get_operator_via_env()
+        validate_operator_is_operator(operator)
 
-        args, kwargs = _get_operator_args_from_env()
+        args, kwargs = _get_operator_args_via_env()
         _verify_kwargs(kwargs)
         _transform_args(args, kwargs)
         task = operator(*args, **kwargs)
         _patch_task_dependencies(task)
         _patch_post_execute_for_xcom(task)
 
-        context = _get_context_from_env()
+        context = _get_context_via_env()
         with set_current_context(context):
-            # needed execution_date here????
-
+            # noinspection SpellCheckingInspection
+            required_task_args = {"run_id": "RUNID", "state": "running"}
             ti = TaskInstance(task=task, **required_task_args)
             _patch_clear_xcom_data(ti)
-
             # noinspection PyProtectedMember
             ti._execute_task_with_callbacks(context, test_mode=True)

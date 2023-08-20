@@ -2,11 +2,9 @@ package-name: apache-airflow-providers-isolation
 display-name: Isolated Operators
 docs_url: https://github.com/astronomer/apache-airflow-providers-isolation/blob/main/README.md
 
-#hooks:
-#  - module: sample_provider.hooks.sample.SampleHook
+hooks:
+  - module: isolation.hooks.post_isolation.PostIsolationHook
 
 operators:
-  - module: sample_provider.operators.sample.SampleOperator
-
-#sensors:
-#  - module: sample_provider.sensors.sample.SampleSensor
+  - module: isolation.operators.isolation.IsolationOperator
+  - module: isolation.operators.isolation_kubernetes.IsolatedKubernetesPodOperator
