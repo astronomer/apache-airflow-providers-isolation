@@ -30,10 +30,9 @@ classifiers = [
 ]
 dynamic = ["version"]
 requires-python = ">=3.8,<3.12"
-dependencies = [
-    "apache-airflow>=2.3,<2.7",
-    'apache-airflow-providers-cncf-kubernetes'
-]
+
+# Must specify either 'kubernetes' or 'cli'
+dependencies = []
 
 [project.entry-points.apache_airflow_provider]
 provider_info = "isolation.__init__:get_provider_info"
@@ -64,21 +63,29 @@ dev = [
     'sh'
 ]
 
-kubernetes = ['apache-airflow-providers-cncf-kubernetes']
-docker = ['apache-airflow-providers-docker']
-fargate = ['apache-airflow-providers-amazon']
-ssh = ['apache-airflow-providers-ssh']
-python = ['apache-airflow']
-
-cli = ["click", "sh"]
-
-all = [
-    'apache-airflow-providers-cncf-kubernetes',
-    'apache-airflow-providers-docker',
-    'apache-airflow-providers-amazon',
-    'apache-airflow-providers-ssh',
-    'apache-airflow'
+kubernetes = [
+    "apache-airflow>=2.3,<2.7",
+    'apache-airflow-providers-cncf-kubernetes'
 ]
+
+cli = [
+    "click",
+    "sh"
+]
+
+#docker = ['apache-airflow-providers-docker']
+#fargate = ['apache-airflow-providers-amazon']
+#ssh = ['apache-airflow-providers-ssh']
+#python = ['apache-airflow']
+#all = [
+#    'apache-airflow-providers-cncf-kubernetes',
+#    'apache-airflow-providers-docker',
+#    'apache-airflow-providers-amazon',
+#    'apache-airflow-providers-ssh',
+#    'apache-airflow'
+#]
+
+
 
 [project.urls]
 Homepage = "https://astronomer.io"

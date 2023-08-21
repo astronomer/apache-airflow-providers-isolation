@@ -1,45 +1,52 @@
-<p>
-  <a href="https://www.airflow.apache.org">
-    <img src="https://raw.githubusercontent.com/astronomer/telescope/main/astro.png" alt="Astronomer Isolation Provider Logo" style="display:block; margin-left: auto; margin-right: auto" />
+<!--suppress HtmlDeprecatedAttribute -->
+<p align="center" >
+  <a href="https://www.astronomer.io/">
+    <img src="https://raw.githubusercontent.com/astronomer/telescope/main/astro.png"
+    alt="Astronomer Isolation Provider Logo"
+    style="display:block; margin-left: auto; margin-right: auto;" />
   </a>
 </p>
-<h1 style="text-align: center">
+<h1 align="center" style="text-align: center;">
    Isolation Provider
 </h1>
-  <h3 style="text-align: center">
+<h3 align="center" style="text-align: center;">
   Runtime Operator Isolation in Airflow.
 
   Created with ❤️ by the CSE Team @ Astronomer
 </h3>
----
+
 <!-- TOC -->
-  * [tl;dr](#tldr)
-  * [What](#what)
-  * [Why](#why)
+* [tl;dr](#tldr)
+  * [Local Requirements:](#local-requirements-)
+  * [`isolationctl`:](#isolationctl-)
+  * [Add DAG](#add-dag)
+  * [`astro`](#astro)
+* [What](#what)
+* [Why](#why)
 * [Installation](#installation)
 * [Usage](#usage)
 * [How](#how)
   * [What it is](#what-it-is)
-    * [What it isn't](#what-it-isnt)
+  * [What it isn't](#what-it-isnt)
 * [Requirements](#requirements)
   * [Technical Requirements - Host Airflow](#technical-requirements---host-airflow)
   * [Technical Requirements - Target Isolated Environment](#technical-requirements---target-isolated-environment)
 <!-- TOC -->
 
-## tl;dr
+# tl;dr
 Check it out locally
-### Local Requirements:
+## Local Requirements:
    - [x] [Docker](https://www.docker.com/get-started/) is installed
    - [x] A local Kubernetes (e.g. [Docker Desktop](https://docs.docker.com/desktop/kubernetes/#turn-on-kubernetes), [Minikube](https://minikube.sigs.k8s.io/docs/), etc) is running
    - [x] [`astro` CLI](https://docs.astronomer.io/astro/cli/overview) is installed
-### `isolationctl`:
+## `isolationctl`:
    ```shell
    pip install apache-airflow-providers-isolation[cli]
    isolationctl init --example --local --git --astro
    isolationctl deploy --local
    ```
 
-### Add DAG
+## Add DAG
    ```python
    from airflow import DAG
    from datetime import datetime
@@ -48,17 +55,17 @@ Check it out locally
    with DAG("isolated_example", schedule=None, datetime=datetime(1970, 1, 1)):
        IsolatedOperator()
    ```
-### `astro`
+## `astro`
    ```shell
    astro registry provider add kubernetes
    astro dev start
    astro run isolated_example
    ```
 
-## What
+# What
 This provider contains the `IsolatedOperator`, which is a mechanism to run other Airflow Operators in an isolated fashion.
 
-## Why
+# Why
 Operator Isolation provides a few benefits:
 - In one Airflow project, run separate versions of python or system dependencies in different DAGs or even different Tasks within the same DAG
 -
@@ -97,7 +104,7 @@ Steps, in more detail:
 
 Most Airflow functionality should work out-of-the-box, simply due to the reliance on the underlying operators to do most of the "heavy lifting" - e.g. XCOMs and Logs
 
-### What it isn't
+## What it isn't
 - Anything that you can and should just do normally in Airflow, you should do normally in Airflow - this won't make an operator that _would run normally_ any easier to run
 - Anything that requires _communicating back_ to the parent Airflow at runtime will not be supported, intentionally - e.g. `Variable.set(...)`
 - Anything that requires querying Airflow state at runtime will not be supported, intentionally - e.g. `@provide_session`, or `TaskInstance.query(...)`, or
