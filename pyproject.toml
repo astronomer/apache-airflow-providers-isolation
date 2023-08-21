@@ -44,6 +44,8 @@ isolationctl = "isolationctl.__main__:cli"
 [project.optional-dependencies]
 dev = [
     'build',
+    'docutils',
+    'twine',
     'pytest-sugar',
     'pytest',
     'pytest-cov',
@@ -70,7 +72,8 @@ kubernetes = [
 
 cli = [
     "click",
-    "sh"
+    "sh",
+    "pyyaml"
 ]
 
 #docker = ['apache-airflow-providers-docker']
