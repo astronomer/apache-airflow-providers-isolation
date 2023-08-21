@@ -290,7 +290,7 @@ def _get(
             for folder in Path(env_folder).iterdir()
         ]
     if len(envs) and _print:
-        print_table(header, [envs])
+        print_table(header, [[e] for e in envs])
     return envs
 
 
@@ -298,7 +298,7 @@ def _get(
 @environment.command(**EPILOG_KWARGS)
 @click.argument(*ENV_ARG_ARGS, **{**ENV_ARG_KWARGS, **dict(required=False)})
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
-def get(env: str, folder: str):
+def get(env: Optional[str], folder: str):
     """Get environments or specific ENVIRONMENT"""
     _get(env, folder)
 

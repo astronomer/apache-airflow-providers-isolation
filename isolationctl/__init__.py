@@ -52,7 +52,7 @@ FOLDER_OPTION_KWARGS = dict(
     help="Path containing Environments",
 )
 ENV_ARG_ARGS = ["env"]
-ENV_ARG_KWARGS = dict(type=str, required=True, envvar=True)
+ENV_ARG_KWARGS = dict(type=str, required=True)
 YES_OPTION_ARGS = ["--yes", "-y"]
 YES_OPTION_KWARGS = dict(type=bool, show_envvar=True, is_flag=True, default=False, help="Skip confirmation")
 EPILOG_KWARGS = dict(

@@ -270,9 +270,30 @@ def test_get(environments, environment):
     expected_exit_code = 0
     # noinspection RegExpRepeatedSpace
     expected_output_pattern = re.compile(
-        rf"""Environments               |
+        rf"""Environments {15}|
 ---------------------------|
-{environments.stem}/{environment.stem}   |
+{environments.stem}/{environment.stem} {3}|
+"""
+    )
+    # noinspection PyTypeChecker
+    click_method_test(
+        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+    )
+
+
+def test_get_all(environments, environment):
+    test_method = get
+    (environments / "a").mkdir()
+    (environments / "b").mkdir()
+    test_args = f"-f {environments.stem}"
+    expected_exit_code = 0
+    # noinspection RegExpRepeatedSpace
+    expected_output_pattern = re.compile(
+        rf"""Environments {15}|
+---------------------------|
+{environments.stem}/{environment.stem} {3}|
+environments_baz/a {9}|
+environments_baz/b {10}|
 """
     )
     # noinspection PyTypeChecker
