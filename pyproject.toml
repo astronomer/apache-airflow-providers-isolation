@@ -66,12 +66,13 @@ dev = [
 ]
 
 kubernetes = [
-    "apache-airflow>=2.3,<2.7",
+    "apache-airflow>=2.3,<2.8",
     'apache-airflow-providers-cncf-kubernetes'
 ]
 
 cli = [
     "click",
+    "docker",
     "sh",
     "pyyaml"
 ]
@@ -191,6 +192,7 @@ env = [
 
 doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 addopts = [
+    "-s",
     "--continue-on-collection-errors",
     "--ignore=tests/resources",
     "--ignore=isolation/example_dags",

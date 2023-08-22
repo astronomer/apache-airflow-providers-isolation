@@ -11,10 +11,9 @@ import pytest
 import sh
 
 import isolation
-from isolationctl import EXAMPLE_ENVIRONMENT, SH_KWARGS, create_registry_docker_container
 
 # noinspection PyProtectedMember
-from isolationctl.__main__ import _add
+from isolationctl import EXAMPLE_ENVIRONMENT, SH_KWARGS, create_registry_docker_container, _add
 
 manual_tests = pytest.mark.skipif(not bool(os.getenv("MANUAL_TESTS")), reason="requires env setup")
 
@@ -162,7 +161,7 @@ def local_registry(environments):
     from isolationctl.__main__ import init
 
     # noinspection PyTypeChecker
-    CliRunner().invoke(init, f"-f {environments.stem} --yes --no-example --local-registry")
+    CliRunner().invoke(init, f"-f {environments.name} --yes --no-example --local-registry")
     yield
     stop_docker_container("registry")
 
@@ -187,7 +186,7 @@ def environment(environments):
     # Setup - Add if not already added
     _environment = environments / EXAMPLE_ENVIRONMENT
     _environment.mkdir(parents=True, exist_ok=True)
-    _add(_environment.stem, environments.stem)
+    _add(_environment.name, environments.name)
 
     yield _environment
 
