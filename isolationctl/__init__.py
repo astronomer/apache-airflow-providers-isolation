@@ -64,6 +64,17 @@ DOCKER_TAG_PATTERN = re.compile(r".*naming to docker\.io/([\w\-/]+)[\s:].*", re.
 REGISTRY_CONTAINER_NAME = "registry"
 REGISTRY_CONTAINER_IMAGE = "registry:2"
 
+AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY = "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE"
+
+
+def write_tag_to_dot_env(tag: str, dot_env):
+    if not dot_env.exists():
+        main_echo(".env file doesn't exist - creating...")
+        dot_env.touch(exist_ok=True)
+
+    with dot_env.open(mode="a") as f:
+        f.write(f"{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{tag}'")
+
 
 def get_provider_package(extras: str = "kubernetes") -> str:
     return f"{ISOLATION_PROVIDER_PACKAGE}[{extras}]"

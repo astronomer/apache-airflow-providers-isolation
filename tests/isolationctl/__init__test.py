@@ -5,6 +5,7 @@ from isolationctl import (
     ISOLATION_PROVIDER_PACKAGE,
     add_requirement,
     DOCKER_TAG_PATTERN,
+    write_tag_to_dot_env,
 )
 
 
@@ -49,6 +50,29 @@ def test_extract_kubeconfig_to_str():
 def test_get_provider_package():
     actual = get_provider_package(extras="foo,bar")
     expected = f"{ISOLATION_PROVIDER_PACKAGE}[foo,bar]"
+    assert actual == expected
+
+
+def write_tag_to_dot_env_not_exists(dotenv):
+    dotenv.unlink(missing_ok=True)
+    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    expected = ""
+    assert actual == expected
+
+
+def write_tag_to_dot_env_empty(dotenv):
+    dotenv.unlink(missing_ok=True)
+    dotenv.touch()
+    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    expected = ""
+    assert actual == expected
+
+
+def write_tag_to_dot_env_existing_contents(dotenv):
+    test_contents = "ABC=XYZ"
+    dotenv.write_text(test_contents)
+    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    expected = ""
     assert actual == expected
 
 

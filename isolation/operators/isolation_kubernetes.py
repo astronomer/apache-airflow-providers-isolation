@@ -9,6 +9,7 @@ from airflow.exceptions import AirflowConfigException
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.utils.context import Context
 
+from isolation.operators import AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY
 from isolation.operators.isolation import IsolatedOperator
 from isolation.util import (
     conn_template_pattern,
@@ -284,6 +285,63 @@ def _set_kpo_default_args_from_env(kubernetes_pod_operator_kwargs: Dict[str, Any
     return kubernetes_pod_operator_kwargs
 
 
+def _derive_image(image: Optional[str], default_image_from_env: Optional[str], environment: Optional[str]) -> str:
+    """Take the different sources of "image" and "environment" and derive a final image
+    1) return image/env, if given
+    2) return image, if env not given
+    3) return default_image/env, if given
+    4) error otherwise
+
+    >>> _derive_image(None,None,None)  # Give nothing, get an error
+    Traceback (most recent call last):
+        ...
+    RuntimeError: Image must be set via the 'image' argument or the 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' env var
+    >>> _derive_image("foo",None,None)  # Give an image, get the image
+    'foo'
+    >>> _derive_image("foo",None,"bar")
+    'foo/bar'
+    >>> _derive_image("foo","baz","bar")
+    'foo/bar'
+    >>> _derive_image(None,"baz","bar")
+    'baz/bar'
+    >>> _derive_image(None,None,"bar")
+    Traceback (most recent call last):
+        ...
+    RuntimeError: Image must be set via the 'image' argument or the 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' env var
+    >>> _derive_image(None,"baz",None)
+    Traceback (most recent call last):
+        ...
+    RuntimeError: The 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' env var must be paired with the 'environment' argument
+    """
+    # Prefer image to the env var default
+    if image:
+        # if that's all we have - return it
+        if not environment:
+            return image
+
+        # If we have image/environment - return it like that
+        else:
+            return f"{image}/{environment}"
+    elif default_image_from_env:
+        # if that's all we have - error
+        if not environment:
+            raise RuntimeError(
+                f"The '{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}' env var "
+                f"must be paired with the 'environment' argument"
+            )
+
+        # If we have image/environment - return it like that
+        else:
+            return f"{default_image_from_env}/{environment}"
+
+    # Both image sources are empty - error
+    else:
+        raise RuntimeError(
+            f"Image must be set via the 'image' argument or the '{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}' env var"
+        )
+
+
+# noinspection GrazieInspection,SpellCheckingInspection
 class IsolatedKubernetesPodOperator(KubernetesPodOperator):
     isolated_operator_args = [
         "task_id",
@@ -298,22 +356,17 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
         task_id: str,
         operator: Type["BaseOperator"],
         image: Optional[str] = None,
+        environment: Optional[str] = None,
         kubernetes_pod_operator_kwargs: Dict[str, Any] = None,
         *args,
         **kwargs,
     ):
-        """IsolatedKubernetesPodOperator - run an IsolatedOperator powered by the KubernetesPodOperator
-        :param task_id: Task id, as normal
-        :param operator: Operator to run, e.g. operator=BashOperator
-        :param image: image - default to env var AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE
-        :param kubernetes_pod_operator_kwargs: kwargs passed directly to the KPO
-        :param args: args for the operator
-        :param kwargs: kwargs for the operator, e.g. bash_command="echo hi"
-        """
         self._args = args
         self._kwargs = kwargs
         self.kubernetes_pod_operator_kwargs = kubernetes_pod_operator_kwargs or {}
         self.operator = operator
+        self.environment = environment
+        self.image = image
 
         _remove_un_settable_kubernetes_pod_operator_kwargs(self.kubernetes_pod_operator_kwargs)
         _set_isolated_logger_configs(self.kubernetes_pod_operator_kwargs)
@@ -324,8 +377,8 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
         _set_operator_via_env(self.operator, self.kubernetes_pod_operator_kwargs)
         _set_operator_args_via_env(self._args, self._kwargs, self.kubernetes_pod_operator_kwargs)
         _set_kpo_default_args_from_env(self.kubernetes_pod_operator_kwargs)
-        if not image and "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE" in os.environ:
-            image = os.getenv("AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE")
+        default_image_from_env = os.getenv(AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY)
+        image = _derive_image(self.image, default_image_from_env, self.environment)
 
         # noinspection SpellCheckingInspection
         super().__init__(

@@ -32,6 +32,7 @@ from isolationctl import (
     add_requirement,
     _add,
     _get,
+    write_tag_to_dot_env,
 )
 
 log = logging.getLogger(__name__)
@@ -242,6 +243,21 @@ def init(
 
     if local:
         main_echo("Initializing --local connection...")
+        dot_env = Path(".env")
+        if astro and shutil.which("astro") is not None:
+            if not confirm_or_skip(
+                "--astro is also set: Running `astro dev parse` to fetch the initial parent image tag, "
+                "and persisting to key: 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' in the '.env' file...",
+                yes,
+            ):
+                tag = build_image("astro-parse", should_log=False)
+                if tag:
+                    write_tag_to_dot_env(tag, dot_env)
+                else:
+                    main_echo("Unable to find tag from `astro dev parse` output. Skipping...")
+        else:
+            main_echo("Cannot find astro. Expecting astro to be installed. Skipping...")
+
         if shutil.which("kubectl") is not None:
             main_echo("kubectl found...")
             encoded_kubeconfig = extract_kubeconfig_to_str()
@@ -250,16 +266,15 @@ def init(
                 "kubernetes://?extra__kubernetes__namespace=default"
                 f"&extra__kubernetes__kube_config={encoded_kubeconfig}"
             )
-            dotenv = Path(".env")
-            if not dotenv.exists():
+            if not dot_env.exists():
                 if not confirm_or_skip(".env file not found - Creating...", yes):
-                    dotenv.touch(exist_ok=True)
+                    dot_env.touch(exist_ok=True)
                     if not confirm_or_skip("Writing local KUBERNETES Airflow Connection to .env file...", yes):
-                        dotenv.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
+                        dot_env.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
             else:
                 main_echo(".env file found...")
                 if not confirm_or_skip("Writing local KUBERNETES Airflow Connection to .env file...", yes):
-                    dotenv.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
+                    dot_env.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
         else:
             main_echo("Cannot find kubectl. " "Expecting Kubernetes to be set up for local execution. Skipping...")
 
