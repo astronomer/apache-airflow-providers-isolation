@@ -33,6 +33,7 @@ from isolationctl import (
     _add,
     _get,
     write_tag_to_dot_env,
+    REGISTRY_CONTAINER_URI,
 )
 
 log = logging.getLogger(__name__)
@@ -64,15 +65,17 @@ def cli():
     required=False,
     show_envvar=True,
     type=str,
-    help="The registry to push the image to. e.g. aaa.dkr.ecr.us-east-2.amazonaws.com/bbb",
+    help="The registry to push environment images to "
+    "such as `docker.io/path/to/my/airflow` "
+    "or `aaa.dkr.ecr.us-east-2.amazonaws.com/bbb`",
 )
 @click.option(
-    "--local/--no-local",
+    "--local-registry/--no-local-registry",
     **DEFAULT_OFF_FLAG_KWARGS,
-    help="Shortcut to utilize a local Docker Registry container running at localhost:5000",
+    help=f"Shortcut to utilize a local Docker Registry container running at {REGISTRY_CONTAINER_URI}",
 )
 @click.option(
-    "--astro-deploy/--no-astro-deploy",
+    "--astro/--no-astro",
     **DEFAULT_OFF_FLAG_KWARGS,
     help="Use the Astro CLI to deploy the base project, as well as environments",
 )
@@ -88,17 +91,17 @@ def cli():
 )
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
 def deploy(
-    yes: bool, registry: Optional[str], local: Optional[str], astro_deploy: bool, env: Optional[str], folder: str
+    yes: bool, registry: Optional[str], local_registry: Optional[str], astro: bool, env: Optional[str], folder: str
 ):
     """Build and deploy environments (alias: d).
     \n
     Build both the parent project and either a specific or all child ENVIRONMENTs
     """
-    if local and registry:
-        raise click.ClickException("--local and --registry cannot be used simultaneously")
+    if local_registry and registry:
+        raise click.ClickException("--local-registry and --registry cannot be used simultaneously")
 
-    if local:
-        registry = "localhost:5000"
+    if local_registry:
+        registry = REGISTRY_CONTAINER_URI
 
     confirm_or_exit("Building parent image - all other images will derive this one...", yes)
     parent_image = build_image(method="astro-parse", get_docker_tag=True, push=False, should_log=True)
@@ -117,13 +120,13 @@ def deploy(
                     build_args={"BASE_IMAGE": parent_image},
                     push=True,
                     get_docker_tag=False,
-                    should_log=True,
+                    should_log=False,
                 )
                 main_echo(f"Deployed environment: '{_environment}', image: '{child_tag}'!")
     else:
         raise click.ClickException("Found 0 environments to build... Exiting!")
 
-    if astro_deploy:
+    if astro:
         sh.astro.deploy(**SH_KWARGS)
 
 
@@ -244,24 +247,25 @@ def init(
     if local:
         main_echo("Initializing --local connection...")
         dot_env = Path(".env")
-        if astro and shutil.which("astro") is not None:
-            if not confirm_or_skip(
-                "--astro is also set: Running `astro dev parse` to fetch the initial parent image tag, "
-                "and persisting to key: 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' in the '.env' file...",
-                yes,
-            ):
-                tag = build_image("astro-parse", should_log=False)
-                if tag:
-                    write_tag_to_dot_env(tag, dot_env)
-                else:
-                    main_echo("Unable to find tag from `astro dev parse` output. Skipping...")
-        else:
-            main_echo("Cannot find astro. Expecting astro to be installed. Skipping...")
+        if astro and local_registry:
+            if shutil.which("astro") is not None:
+                if not confirm_or_skip(
+                    "--astro is also set: Running `astro dev parse` to fetch the initial parent image tag, "
+                    "and persisting to key: 'AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE' in the '.env' file...",
+                    yes,
+                ):
+                    tag = build_image("astro-parse", should_log=False)
+                    if tag:
+                        write_tag_to_dot_env(REGISTRY_CONTAINER_URI, tag, dot_env)
+                    else:
+                        main_echo("Unable to find tag from `astro dev parse` output. Skipping...")
+            else:
+                main_echo("Cannot find astro. Expecting astro to be installed. Skipping...")
 
         if shutil.which("kubectl") is not None:
             main_echo("kubectl found...")
             encoded_kubeconfig = extract_kubeconfig_to_str()
-            kubernetes_conn_key = "AIRFLOW_CONN_KUBERNETES"
+            kubernetes_conn_key = "AIRFLOW_CONN_KUBERNETES_DEFAULT"
             kubernetes_conn_value = (
                 "kubernetes://?extra__kubernetes__namespace=default"
                 f"&extra__kubernetes__kube_config={encoded_kubeconfig}"
@@ -269,12 +273,12 @@ def init(
             if not dot_env.exists():
                 if not confirm_or_skip(".env file not found - Creating...", yes):
                     dot_env.touch(exist_ok=True)
-                    if not confirm_or_skip("Writing local KUBERNETES Airflow Connection to .env file...", yes):
-                        dot_env.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
             else:
                 main_echo(".env file found...")
-                if not confirm_or_skip("Writing local KUBERNETES Airflow Connection to .env file...", yes):
-                    dot_env.write_text(f"{kubernetes_conn_key}={kubernetes_conn_value}")
+            if not confirm_or_skip("Writing KUBERNETES_DEFAULT Airflow Connection to .env file...", yes):
+                dot_env.open("a").write(f"{kubernetes_conn_key}={kubernetes_conn_value}")
+            if not confirm_or_skip("Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to .env file...", yes):
+                dot_env.open("a").write("AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID='kubernetes_default'")
         else:
             main_echo("Cannot find kubectl. " "Expecting Kubernetes to be set up for local execution. Skipping...")
 
@@ -291,11 +295,31 @@ def init(
 
 @cli.group(**EPILOG_KWARGS)
 def environment():
-    """Manage environments (alias: env, e).
+    """Manage environments (alias: env, e). Environments are contained in folders inside an Airflow project.
     \n
-    An environment consists of a child image that inherits the parent image of an Airflow project.
+    An environment inherits from a parent image (the root `Dockerfile`).
     Both images should contain all DAGs and other supporting source code.
-    The child image may contain different dependencies or system packages from the parent."""
+    The child image may contain different dependencies or system packages from the parent.
+
+    The expected setup is as follows:
+    ```shell
+    $ tree
+    ├── Dockerfile
+    ├── dags
+    │  └── my_dag.py
+    ├── environments
+    │  ├── env_one
+    │  │   ├── Dockerfile
+    │  │   ├── packages.txt
+    │  │   └── requirements.txt
+    │  └── env_two
+    │      ├── Dockerfile
+    │      ├── packages.txt
+    │      └── requirements.txt
+    ├── packages.txt
+    └── requirements.txt
+    ```
+    """
 
 
 # noinspection PyShadowingBuiltins
@@ -313,9 +337,9 @@ def get(env: Optional[str], folder: str):
 @click.option(*YES_OPTION_ARGS, **YES_OPTION_KWARGS)
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
 def add(env: str, yes: bool, folder: str):
-    """Add a new ENVIRONMENT initialized from a template.
+    """Add an ENVIRONMENT initialized from a template
     \n
-    An environment consists of a child image that inherits the parent image of an Airflow project.
+    An environment inherits from a parent image (the root `Dockerfile`).
     Both images should contain all DAGs and other supporting source code.
     The child image may contain different dependencies or system packages from the parent.
     """
@@ -336,7 +360,7 @@ def add(env: str, yes: bool, folder: str):
 @click.option(*YES_OPTION_ARGS, **YES_OPTION_KWARGS)
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
 def remove(env: str, yes: bool, folder: str):
-    """Remove an ENVIRONMENT."""
+    """Removes an ENVIRONMENT (which is the same as `rm -rf environments/environment`)"""
     if not confirm_or_skip(f"Removing environment '{env}'{add_folder_if_not_default(folder)}.", yes):
         _environment = Path(folder) / env
         if not _environment.exists():

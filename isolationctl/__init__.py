@@ -63,17 +63,24 @@ EPILOG_KWARGS = dict(
 DOCKER_TAG_PATTERN = re.compile(r".*naming to docker\.io/([\w\-/]+)[\s:].*", re.DOTALL)
 REGISTRY_CONTAINER_NAME = "registry"
 REGISTRY_CONTAINER_IMAGE = "registry:2"
+REGISTRY_CONTAINER_URI = "localhost:5000"
 
+# We don't *need* apache-airflow-providers-isolation[kubernetes] in child environments - but - can't hurt to add?
+ADD_PROVIDER_TO_ENVIRONMENT = False
 AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY = "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE"
 
 
-def write_tag_to_dot_env(tag: str, dot_env):
+def write_tag_to_dot_env(
+    registry: str,
+    image: str,
+    dot_env: Path,
+):
     if not dot_env.exists():
         main_echo(".env file doesn't exist - creating...")
         dot_env.touch(exist_ok=True)
 
     with dot_env.open(mode="a") as f:
-        f.write(f"{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{tag}'")
+        f.write(f"{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{registry}/{image}'")
 
 
 def get_provider_package(extras: str = "kubernetes") -> str:
@@ -81,6 +88,7 @@ def get_provider_package(extras: str = "kubernetes") -> str:
 
 
 def add_requirement(requirements_txt: Path, extras: str = "kubernetes") -> None:
+    """Add apache-airflow-providers-isolation[kubernetes] to requirements.txt"""
     provider_package = get_provider_package(extras)
     if requirements_txt.exists():
         main_echo(f"'{requirements_txt.name}' file found, appending provider...")
@@ -158,6 +166,7 @@ def build_image(
     get_docker_tag: bool = True,
     should_log: bool = True,
 ) -> Optional[str]:
+    """Build a docker image via one of multiple methods"""
     docker_tag, output = None, None
     if method == "docker":
         docker_tag = build_image_via_docker(tag, build_args, push, should_log)
@@ -279,7 +288,7 @@ def create_registry_docker_container():
                 ),
                 **SH_KWARGS,
             )
-            main_echo("Local docker Image Registry container created! Accessible via localhost:5000 !")
+            main_echo(f"Local docker Image Registry container created! Accessible via {REGISTRY_CONTAINER_URI} !")
     except sh.ErrorReturnCode_125:
         main_echo(
             "Container is already running, skipping... "
@@ -288,6 +297,12 @@ def create_registry_docker_container():
 
 
 def _add(env_name: str, folder_name: str):
+    """Add an environment
+    - Create the folder
+    - Add a Dockerfile
+    - Add a requirements.txt
+    - Add a packages.txt
+    """
     env = Path(env_name)
     folder = Path(folder_name)
     (folder / env).mkdir(parents=True, exist_ok=True)
@@ -301,7 +316,8 @@ def _add(env_name: str, folder_name: str):
     requirements_txt = folder / env / "requirements.txt"
     requirements_txt.touch()
     main_echo(f"'{add_folder_if_not_default(folder_name, prefix='', suffix='/')}{env}/requirements.txt' added!")
-    add_requirement(requirements_txt)
+    if ADD_PROVIDER_TO_ENVIRONMENT:
+        add_requirement(requirements_txt)
 
     packages_txt = folder / env / "packages.txt"
     packages_txt.touch()

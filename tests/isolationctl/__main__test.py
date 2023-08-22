@@ -8,9 +8,17 @@ import pytest
 from click import BaseCommand
 from click.testing import CliRunner, Result
 
-# noinspection PyProtectedMember
 from isolationctl.__main__ import remove, add, init, deploy, get
-from isolationctl import DEFAULT_ENVIRONMENTS_FOLDER, EXAMPLE_ENVIRONMENT, find_docker_container, _add, _get
+
+# noinspection PyProtectedMember
+from isolationctl import (
+    DEFAULT_ENVIRONMENTS_FOLDER,
+    EXAMPLE_ENVIRONMENT,
+    find_docker_container,
+    _add,
+    _get,
+    REGISTRY_CONTAINER_URI,
+)
 from tests.conftest import manual_tests, stop_docker_container
 
 
@@ -42,7 +50,7 @@ def click_method_test(
 @manual_tests
 def test_deploy(environments, environment, docker_registry, astro):
     test_method = deploy
-    test_args = f"-f {environments.name} --yes --local"
+    test_args = f"-f {environments.name} --yes --local-registry"
     expected_exit_code = 0
     e = environment.name
     es = environments.name
@@ -51,8 +59,8 @@ def test_deploy(environments, environment, docker_registry, astro):
 .*
 Got image tag: '[\w\-_]+/airflow'\.\.\.
 Found 1 environment to build\.\.\.
-Building environment '{es}/{e}' from parent image '[\w\-_]+/airflow'\.\.\.
-Deployed environment: '{es}/{e}', image: 'localhost:5000/[\w\-_]+/airflow/example'!\n""",
+Building environment '{es}/{e}' from parent image '[\w\-_]+/airflow'\.\.\..*
+Deployed environment: '{es}/{e}', image: '{REGISTRY_CONTAINER_URI}/[\w\-_]+/airflow/example'!\n""",
         re.DOTALL,
     )
     # noinspection PyTypeChecker
@@ -120,9 +128,11 @@ def test_init_local(environments, dotenv):
     expected_output_pattern = re.compile(
         rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initializing --local connection\.\.\.
-kubectl found\.\.\..*
+kubectl found\.\.\.
+.*
 \.env file found\.\.\.
-Writing local KUBERNETES Airflow Connection to \.env file\.\.\.
+Writing KUBERNETES_DEFAULT Airflow Connection to \.env file\.\.\.
+Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to \.env file\.\.\.
 Initialized!\n""",
         re.DOTALL,
     )
@@ -132,7 +142,7 @@ Initialized!\n""",
     )
     assert dotenv.exists()
     actual_dotenv = dotenv.read_text()
-    assert "AIRFLOW_CONN_KUBERNETES=kubernetes://?extra__kubernetes__namespace=default" in actual_dotenv
+    assert "AIRFLOW_CONN_KUBERNETES_DEFAULT=kubernetes://?extra__kubernetes__namespace=default" in actual_dotenv
 
     # Do it again
     dotenv.unlink(missing_ok=True)
@@ -141,7 +151,8 @@ Initialized!\n""",
 Initializing --local connection\.\.\.
 kubectl found\.\.\..*
 \.env file not found - Creating\.\.\.
-Writing local KUBERNETES Airflow Connection to \.env file\.\.\.
+Writing KUBERNETES_DEFAULT Airflow Connection to \.env file\.\.\.
+Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to \.env file\.\.\.
 Initialized!\n""",
         re.DOTALL,
     )
@@ -151,7 +162,8 @@ Initialized!\n""",
     )
     assert dotenv.exists()
     actual_dotenv = dotenv.read_text()
-    assert "AIRFLOW_CONN_KUBERNETES=kubernetes://?extra__kubernetes__namespace=default" in actual_dotenv
+    assert "AIRFLOW_CONN_KUBERNETES_DEFAULT=kubernetes://?extra__kubernetes__namespace=default" in actual_dotenv
+    assert "AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID='kubernetes_default'" in actual_dotenv
 
 
 # noinspection DuplicatedCode

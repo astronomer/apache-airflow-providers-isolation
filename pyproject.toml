@@ -9,7 +9,6 @@ include-package-data = false
 version = { attr = "isolation.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["isolation*"]
 exclude = [
     "*venv", "*venv.*",
     "*tests.*", "*tests",
@@ -20,7 +19,8 @@ exclude = [
 [project]
 name = "apache-airflow-providers-isolation"
 authors = [
-    { name = "Fritz Davenport", email = "fritz@astronomer.io" }
+    { name = "Fritz Davenport", email = "fritz@astronomer.io" },
+    { name = "Astronomer", email = "humans@astronomer.io" }
 ]
 license = { text = "Apache License 2.0" }
 description = "Runtime Operator Isolation in Airflow"

@@ -6,6 +6,7 @@ from isolationctl import (
     add_requirement,
     DOCKER_TAG_PATTERN,
     write_tag_to_dot_env,
+    REGISTRY_CONTAINER_URI,
 )
 
 
@@ -55,7 +56,7 @@ def test_get_provider_package():
 
 def write_tag_to_dot_env_not_exists(dotenv):
     dotenv.unlink(missing_ok=True)
-    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    actual = write_tag_to_dot_env(REGISTRY_CONTAINER_URI, "foo/bar/airflow", dotenv)
     expected = ""
     assert actual == expected
 
@@ -63,7 +64,7 @@ def write_tag_to_dot_env_not_exists(dotenv):
 def write_tag_to_dot_env_empty(dotenv):
     dotenv.unlink(missing_ok=True)
     dotenv.touch()
-    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    actual = write_tag_to_dot_env(REGISTRY_CONTAINER_URI, "foo/bar/airflow", dotenv)
     expected = ""
     assert actual == expected
 
@@ -71,7 +72,7 @@ def write_tag_to_dot_env_empty(dotenv):
 def write_tag_to_dot_env_existing_contents(dotenv):
     test_contents = "ABC=XYZ"
     dotenv.write_text(test_contents)
-    actual = write_tag_to_dot_env("localhost:5000/foo/bar/airflow", dotenv)
+    actual = write_tag_to_dot_env(REGISTRY_CONTAINER_URI, "foo/bar/airflow", dotenv)
     expected = ""
     assert actual == expected
 

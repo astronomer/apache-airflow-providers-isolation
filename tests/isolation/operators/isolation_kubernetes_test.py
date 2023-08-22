@@ -37,7 +37,7 @@ def test_isolated_operator():
         operator=BashOperator,
         bash_command="echo {{ params.hi }}",
         params={"hi": "hello"},
-        kubernetes_pod_operator_kwargs={"node_selector": expected_node_selector},
+        isolated_operator_kwargs={"node_selector": expected_node_selector},
     )
 
     assert actual.cmds == expected_cmds
