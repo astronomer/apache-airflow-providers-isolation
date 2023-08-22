@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 import click
 import sh
@@ -13,7 +13,6 @@ from isolationctl import (
     main_echo,
     confirm_or_exit,
     confirm_or_skip,
-    DOCKERFILE,
     CONTEXT_SETTINGS,
     DEFAULT_ON_FLAG_KWARGS,
     DEFAULT_OFF_FLAG_KWARGS,
@@ -28,9 +27,11 @@ from isolationctl import (
     build_image,
     ENV_ARG_ARGS,
     ENV_ARG_KWARGS,
-    print_table,
-    DEFAULT_ENVIRONMENTS_FOLDER,
     create_registry_docker_container,
+    ISOLATION_PROVIDER_PACKAGE,
+    add_requirement,
+    _add,
+    _get,
 )
 
 log = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ def cli():
     "-r",
     "--registry",
     default=None,
+    required=False,
     show_envvar=True,
     type=str,
     help="The registry to push the image to. e.g. aaa.dkr.ecr.us-east-2.amazonaws.com/bbb",
@@ -74,10 +76,19 @@ def cli():
     help="Use the Astro CLI to deploy the base project, as well as environments",
 )
 @click.option(
-    "-e", "--environment", "env", default=None, show_envvar=True, type=str, help="What environment to deploy."
+    "-e",
+    "--environment",
+    "env",
+    default=None,
+    show_default=True,
+    show_envvar=True,
+    type=str,
+    help="What environment to deploy.",
 )
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
-def deploy(yes: bool, registry: Optional[str], local: str, astro_deploy: bool, env: str, folder: str):
+def deploy(
+    yes: bool, registry: Optional[str], local: Optional[str], astro_deploy: bool, env: Optional[str], folder: str
+):
     """Build and deploy environments (alias: d).
     \n
     Build both the parent project and either a specific or all child ENVIRONMENTs
@@ -89,7 +100,7 @@ def deploy(yes: bool, registry: Optional[str], local: str, astro_deploy: bool, e
         registry = "localhost:5000"
 
     confirm_or_exit("Building parent image - all other images will derive this one...", yes)
-    parent_image = build_image(method="astro-parse")
+    parent_image = build_image(method="astro-parse", get_docker_tag=True, push=False, should_log=True)
     environments = _get(env, folder, _print=False, full_path=True)
     if len(environments):
         main_echo(
@@ -102,9 +113,10 @@ def deploy(yes: bool, registry: Optional[str], local: str, astro_deploy: bool, e
                 build_image(
                     method="docker",
                     tag=child_tag,
-                    build_args=f'--build-arg="BASE_IMAGE={parent_image}"',
+                    build_args={"BASE_IMAGE": parent_image},
                     push=True,
                     get_docker_tag=False,
+                    should_log=True,
                 )
                 main_echo(f"Deployed environment: '{_environment}', image: '{child_tag}'!")
     else:
@@ -139,6 +151,12 @@ def deploy(yes: bool, registry: Optional[str], local: str, astro_deploy: bool, e
     help="Additional initialization, create a git repository in the current directory with `git init`",
 )
 @click.option(
+    "--dependency/--no-dependency",
+    **DEFAULT_OFF_FLAG_KWARGS,
+    help="Additional initialization, add `apache-airflow-providers-isolation` to a `requirements.txt` file. "
+    "Unnecessary with `--astro`, as it's automatically added.",
+)
+@click.option(
     "--cicd",
     type=click.Choice(
         [
@@ -162,7 +180,16 @@ def deploy(yes: bool, registry: Optional[str], local: str, astro_deploy: bool, e
 @click.option(*YES_OPTION_ARGS, **YES_OPTION_KWARGS)
 @click.pass_context
 def init(
-    ctx, folder: str, example: bool, local: bool, local_registry: bool, astro: bool, git: bool, cicd: str, yes: bool
+    ctx,
+    folder: str,
+    example: bool,
+    local: bool,
+    local_registry: bool,
+    astro: bool,
+    git: bool,
+    cicd: str,
+    yes: bool,
+    dependency: bool,
 ):
     """Initialize environments (alias: i).
     \n
@@ -182,13 +209,20 @@ def init(
         ctx.invoke(add, env="example", yes=yes, folder=folder)
 
     if astro:
+        requirements_txt = Path("requirements.txt")
         main_echo("Initializing --astro airflow project...")
         if shutil.which("astro") is not None:
             main_echo("astro found...")
             if not confirm_or_skip("Initializing Astro Project with astro dev init...", yes):
                 sh.astro.dev.init(_in="y", _out=sys.stdout, _err=sys.stderr)
+                add_requirement(requirements_txt)
         else:
             main_echo("Cannot find astro. Expecting astro to be installed. Skipping...")
+
+    if dependency and not astro:
+        requirements_txt = Path("requirements.txt")
+        if not confirm_or_skip(f"Adding '{ISOLATION_PROVIDER_PACKAGE}' to '{requirements_txt.name}'...", yes):
+            add_requirement(requirements_txt)
 
     if git:
         main_echo("Initializing --git repository...")
@@ -249,51 +283,6 @@ def environment():
     The child image may contain different dependencies or system packages from the parent."""
 
 
-def _add(env_name: str, folder_name: str):
-    env = Path(env_name)
-    folder = Path(folder_name)
-    (folder / env).mkdir(parents=True, exist_ok=True)
-    main_echo(f"Folder '{add_folder_if_not_default(folder_name, prefix='', suffix='/')}{env}/' created!")
-
-    dockerfile = folder / env / "Dockerfile"
-    dockerfile.touch()
-    dockerfile.write_text(DOCKERFILE)
-    main_echo(f"- '{add_folder_if_not_default(folder_name, prefix='', suffix='/')}{env}/Dockerfile' added!")
-
-    requirements_txt = folder / env / "requirements.txt"
-    requirements_txt.touch()
-    main_echo(f"- '{add_folder_if_not_default(folder_name, prefix='', suffix='/')}{env}/requirements.txt' added!")
-
-    packages_txt = folder / env / "packages.txt"
-    packages_txt.touch()
-    main_echo(f"- '{add_folder_if_not_default(folder_name, prefix='', suffix='/')}{env}/packages.txt' added!")
-
-
-def _get(
-    env: Optional[str],
-    env_folder: Optional[str] = DEFAULT_ENVIRONMENTS_FOLDER,
-    _print: bool = True,
-    full_path: bool = False,
-) -> List[str]:
-    header = ["Environments"]
-    if env:
-        envs = [
-            add_folder_if_not_default(env_folder, prefix="", suffix="/", default="" if full_path else None)
-            + folder.stem
-            for folder in Path(env_folder).iterdir()
-            if folder.stem == env
-        ]
-    else:
-        envs = [
-            add_folder_if_not_default(env_folder, prefix="", suffix="/", default="" if full_path else None)
-            + folder.stem
-            for folder in Path(env_folder).iterdir()
-        ]
-    if len(envs) and _print:
-        print_table(header, [[e] for e in envs])
-    return envs
-
-
 # noinspection PyShadowingBuiltins
 @environment.command(**EPILOG_KWARGS)
 @click.argument(*ENV_ARG_ARGS, **{**ENV_ARG_KWARGS, **dict(required=False)})
@@ -322,7 +311,7 @@ def add(env: str, yes: bool, folder: str):
             f"Environment '{env}'{add_folder_if_not_default(folder)} already exists " f"- to recreate, remove first!"
         )
     else:
-        _add(_environment.stem, folder)
+        _add(_environment.name, folder)
         main_echo(f"Environment '{env}'{add_folder_if_not_default(folder)} created!")
 
 
@@ -333,13 +322,13 @@ def add(env: str, yes: bool, folder: str):
 @click.option(*FOLDER_OPTION_ARGS, **FOLDER_OPTION_KWARGS)
 def remove(env: str, yes: bool, folder: str):
     """Remove an ENVIRONMENT."""
-    confirm_or_exit(f"Removing environment '{env}'{add_folder_if_not_default(folder)}.", yes)
-    _environment = Path(folder) / env
-    if not _environment.exists():
-        main_echo(f"Environment '{env}'{add_folder_if_not_default(folder)} does not exist!")
-    else:
-        shutil.rmtree(_environment)
-        main_echo(f"Environment '{env}'{add_folder_if_not_default(folder)} removed!")
+    if not confirm_or_skip(f"Removing environment '{env}'{add_folder_if_not_default(folder)}.", yes):
+        _environment = Path(folder) / env
+        if not _environment.exists():
+            main_echo(f"Environment '{env}'{add_folder_if_not_default(folder)} does not exist!")
+        else:
+            shutil.rmtree(_environment)
+            main_echo(f"Environment '{env}'{add_folder_if_not_default(folder)} removed!")
 
 
 if __name__ == "__main__":

@@ -9,8 +9,8 @@ from click import BaseCommand
 from click.testing import CliRunner, Result
 
 # noinspection PyProtectedMember
-from isolationctl.__main__ import remove, add, _add, init, deploy, get, _get
-from isolationctl import DEFAULT_ENVIRONMENTS_FOLDER, EXAMPLE_ENVIRONMENT, find_docker_container
+from isolationctl.__main__ import remove, add, init, deploy, get
+from isolationctl import DEFAULT_ENVIRONMENTS_FOLDER, EXAMPLE_ENVIRONMENT, find_docker_container, _add, _get
 from tests.conftest import manual_tests, stop_docker_container
 
 
@@ -21,8 +21,17 @@ def click_method_test(
     expected_exit_code: Optional[int] = None,
     expected_output_pattern: Optional[Pattern[str]] = None,
 ) -> Result:
-    result = CliRunner().invoke(method, args, **({"input": stdin} if stdin else {}))
-    sys.stdout.write(result.output)
+    result: Result = CliRunner().invoke(method, args, **({"input": stdin} if stdin else {}))
+    if result.exception:
+        raise result.exception
+        # sys.stderr.write(result.exception)
+        # sys.stderr.write(result.exception.args)
+        # sys.stderr.write(result.exception.__cause__)
+        # sys.stderr.write(result.exception.__traceback__)
+    if result.stdout_bytes:
+        sys.stdout.write(result.stdout)
+    if result.stderr_bytes:
+        sys.stdout.write(result.stderr)
     if expected_exit_code:
         assert result.exit_code == expected_exit_code, "command's exit code was as expected"
     if expected_output_pattern:
@@ -33,16 +42,17 @@ def click_method_test(
 @manual_tests
 def test_deploy(environments, environment, docker_registry, astro):
     test_method = deploy
-    test_args = f"-f {environments.stem} --yes --local"
+    test_args = f"-f {environments.name} --yes --local"
     expected_exit_code = 0
-    e = environment.stem
-    es = environments.stem
+    e = environment.name
+    es = environments.name
     expected_output_pattern = re.compile(
         rf"""Building parent image - all other images will derive this one\.\.\..*
-Got image tag: 'isolationctl_c1bdcd/airflow'\.\.\.
+.*
+Got image tag: '[\w\-_]+/airflow'\.\.\.
 Found 1 environment to build\.\.\.
-Building environment '{es}/{e}' from parent image 'isolationctl_\w+/airflow'\.\.\..*
-Deployed environment: '{es}/{e}', image: 'localhost:5000/isolationctl_\w+/airflow/example'!""",
+Building environment '{es}/{e}' from parent image '[\w\-_]+/airflow'\.\.\.
+Deployed environment: '{es}/{e}', image: 'localhost:5000/[\w\-_]+/airflow/example'!\n""",
         re.DOTALL,
     )
     # noinspection PyTypeChecker
@@ -60,10 +70,10 @@ def test_init_git(environments, dotgit):
     else:
         pytest.skip(".git already exists - cowardly skipping this test!")
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example --git"
+    test_args = f"-f {environments.name} --yes --no-example --git"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Creating an environments folder in '{environments.stem}' in '{environments.parent.absolute()}'\.\.\.
+        rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initializing --git repository\.\.\.
 Initialized empty Git repository in {environments.parent.absolute()}/\.git/
 Initialized!"""
@@ -77,10 +87,10 @@ Initialized!"""
 @manual_tests
 def test_init_astro(environments, astro):
     shutil.rmtree(environments, ignore_errors=True)
-    es = environments.stem
+    es = environments.name
     p = environments.parent.absolute()
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example --astro"
+    test_args = f"-f {environments.name} --yes --no-example --astro"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
         rf"""Creating an environments folder in '{es}' in '{p}'\.\.\.
@@ -105,15 +115,15 @@ Initialized!.*""",
 def test_init_local(environments, dotenv):
     shutil.rmtree(environments, ignore_errors=True)
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example --local"
+    test_args = f"-f {environments.name} --yes --no-example --local"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Creating an environments folder in '{environments.stem}' in '{environments.parent.absolute()}'\.\.\.
+        rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initializing --local connection\.\.\.
 kubectl found\.\.\..*
 \.env file found\.\.\.
 Writing local KUBERNETES Airflow Connection to \.env file\.\.\.
-Initialized!""",
+Initialized!\n""",
         re.DOTALL,
     )
     # noinspection PyTypeChecker
@@ -127,12 +137,13 @@ Initialized!""",
     # Do it again
     dotenv.unlink(missing_ok=True)
     expected_output_pattern = re.compile(
-        rf"""Environments folder '{environments.stem}' already exists, skipping\.\.\.
+        rf"""Environments folder '{environments.name}' already exists, skipping\.\.\.
 Initializing --local connection\.\.\.
 kubectl found\.\.\..*
 \.env file not found - Creating\.\.\.
 Writing local KUBERNETES Airflow Connection to \.env file\.\.\.
-Initialized!"""
+Initialized!\n""",
+        re.DOTALL,
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -149,10 +160,10 @@ def test_init_local_registry(environments, docker_registry):
     stop_docker_container("registry")
     shutil.rmtree(environments, ignore_errors=True)
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example --local-registry"
+    test_args = f"-f {environments.name} --yes --no-example --local-registry"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Creating an environments folder in '{environments.stem}' in '{environments.parent.absolute()}'\.\.\.
+        rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initialized!
 Initializing --local-registry docker Image Registry\.\.\.
 Creating a local docker Image Registry container on port 5000\.\.\..*
@@ -173,18 +184,19 @@ def test_init_example(environments):
     shutil.rmtree(environments, ignore_errors=True)
     environment = EXAMPLE_ENVIRONMENT
     test_method = init
-    test_args = f"-f {environments.stem} --yes --example"
+    test_args = f"-f {environments.name} --yes --example"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Creating an environments folder in '{environments.stem}' in '{environments.parent.absolute()}'\.\.\.
+        rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initializing --example environment\.\.\.
-Adding environment '{environment}' in '{environments.stem}'\.\.\.
-Folder '{environments.stem}/{environment}/' created!
-- '{environments.stem}/{environment}/Dockerfile' added!
-- '{environments.stem}/{environment}/requirements\.txt' added!
-- '{environments.stem}/{environment}/packages\.txt' added!
-Environment '{environment}' in '{environments.stem}' created!
-Initialized!"""
+Adding environment '{environment}' in '{environments.name}'\.\.\.
+Folder '{environments.name}/{environment}/' created!
+'{environments.name}/{environment}/Dockerfile' added!
+'{environments.name}/{environment}/requirements\.txt' added!
+'requirements\.txt' file found, appending provider\.\.\.
+'{environments.name}/{environment}/packages\.txt' added!
+Environment '{environment}' in '{environments.name}' created!
+Initialized!\n"""
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -194,10 +206,10 @@ Initialized!"""
 
 def test_init_exists(environments):
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example"
+    test_args = f"-f {environments.name} --yes --no-example"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Environments folder '{environments.stem}' already exists, skipping\.\.\.
+        rf"""Environments folder '{environments.name}' already exists, skipping\.\.\.
 Initialized!"""
     )
     # noinspection PyTypeChecker
@@ -210,10 +222,10 @@ Initialized!"""
 def test_init_does_not_exist(environments):
     shutil.rmtree(environments, ignore_errors=True)
     test_method = init
-    test_args = f"-f {environments.stem} --yes --no-example"
+    test_args = f"-f {environments.name} --yes --no-example"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Creating an environments folder in '{environments.stem}' in '{environments.parent.absolute()}'\.\.\.
+        rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initialized!"""
     )
     # noinspection PyTypeChecker
@@ -232,7 +244,7 @@ def test__add_default_folder():
     packages_txt = environment / "packages.txt"
     shutil.rmtree(environment, ignore_errors=True)
 
-    _add(environment.stem, DEFAULT_ENVIRONMENTS_FOLDER)
+    _add(environment.name, DEFAULT_ENVIRONMENTS_FOLDER)
 
     assert environment.exists()
     assert dockerfile.exists()
@@ -245,7 +257,7 @@ def test__add_default_folder():
 def test__add_non_default_folder(environments, environment, dockerfile, requirements_txt, packages_txt):
     shutil.rmtree(environment, ignore_errors=True)
 
-    _add(environment.stem, "environments_baz")
+    _add(environment.name, "environments_baz")
 
     assert environment.exists()
     assert dockerfile.exists()
@@ -254,25 +266,25 @@ def test__add_non_default_folder(environments, environment, dockerfile, requirem
 
 
 def test__get(environments, environment):
-    actual = _get(env=environment.stem, env_folder=environments.stem)
-    expected = [f"{environments.stem}/{environment.stem}"]
+    actual = _get(env=environment.name, env_folder=environments.name)
+    expected = [f"{environments.name}/{environment.name}"]
     assert actual == expected
 
-    actual = _get(env=None, env_folder=environments.stem)
-    expected = [f"{environments.stem}/{environment.stem}"]
+    actual = _get(env=None, env_folder=environments.name)
+    expected = [f"{environments.name}/{environment.name}"]
     assert actual == expected
 
 
 # noinspection DuplicatedCode
 def test_get(environments, environment):
     test_method = get
-    test_args = f"{environment.stem} -f {environments.stem}"
+    test_args = f"{environment.name} -f {environments.name}"
     expected_exit_code = 0
     # noinspection RegExpRepeatedSpace
     expected_output_pattern = re.compile(
         rf"""Environments {15}|
 ---------------------------|
-{environments.stem}/{environment.stem} {3}|
+{environments.name}/{environment.name} {3}|
 """
     )
     # noinspection PyTypeChecker
@@ -285,13 +297,13 @@ def test_get_all(environments, environment):
     test_method = get
     (environments / "a").mkdir()
     (environments / "b").mkdir()
-    test_args = f"-f {environments.stem}"
+    test_args = f"-f {environments.name}"
     expected_exit_code = 0
     # noinspection RegExpRepeatedSpace
     expected_output_pattern = re.compile(
         rf"""Environments {15}|
 ---------------------------|
-{environments.stem}/{environment.stem} {3}|
+{environments.name}/{environment.name} {3}|
 environments_baz/a {9}|
 environments_baz/b {10}|
 """
@@ -306,15 +318,16 @@ environments_baz/b {10}|
 def test_add(environments, environment, dockerfile, requirements_txt, packages_txt):
     shutil.rmtree(environment, ignore_errors=True)
     test_method = add
-    test_args = f"{environment.stem} -f {environments.stem} --yes"
+    test_args = f"{environment.name} -f {environments.name} --yes"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Adding environment '{environment.stem}' in '{environments.stem}'\.\.\.
-Folder '{environments.stem}/{environment.stem}/' created!
-- '{environments.stem}/{environment.stem}/Dockerfile' added!
-- '{environments.stem}/{environment.stem}/requirements\.txt' added!
-- '{environments.stem}/{environment.stem}/packages\.txt' added!
-Environment '{environment.stem}' in '{environments.stem}' created!"""
+        rf"""Adding environment '{environment.name}' in '{environments.name}'\.\.\.
+Folder '{environments.name}/{environment.name}/' created!
+'{environments.name}/{environment.name}/Dockerfile' added!
+'{environments.name}/{environment.name}/requirements\.txt' added!
+'requirements\.txt' file found, appending provider\.\.\.
+'{environments.name}/{environment.name}/packages\.txt' added!
+Environment '{environment.name}' in '{environments.name}' created!\n"""
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -324,11 +337,11 @@ Environment '{environment.stem}' in '{environments.stem}' created!"""
 
 def test_add_already_exists(environments, environment):
     test_method = add
-    test_args = f"{environment.stem} -f {environments.stem} --yes"
+    test_args = f"{environment.name} -f {environments.name} --yes"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Adding environment '{environment.stem}' in '{environments.stem}'\.\.\.
-Environment '{environment.stem}' in '{environments.stem}' already exists - to recreate, remove first!"""
+        rf"""Adding environment '{environment.name}' in '{environments.name}'\.\.\.
+Environment '{environment.name}' in '{environments.name}' already exists - to recreate, remove first!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -341,11 +354,11 @@ def test_remove_non_existent(environments, environment):
     """remove has expected exit-code+output with --yes when environment doesn't exist"""
     shutil.rmtree(environment, ignore_errors=True)
     test_method = remove
-    test_args = f"{environment.stem} -f {environments.stem} --yes"
+    test_args = f"{environment.name} -f {environments.name} --yes"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Removing environment '{environment.stem}' in '{environments.stem}'\.
-Environment '{environment.stem}' in '{environments.stem}' does not exist"""
+        rf"""Removing environment '{environment.name}' in '{environments.name}'\.
+Environment '{environment.name}' in '{environments.name}' does not exist"""
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -358,11 +371,11 @@ Environment '{environment.stem}' in '{environments.stem}' does not exist"""
 def test_remove_exists(environments, environment):
     """remove has expected exit-code+output with --yes when environment exists"""
     test_method = remove
-    test_args = f"{environment.stem} -f {environments.stem} --yes"
+    test_args = f"{environment.name} -f {environments.name} --yes"
     expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Removing environment '{environment.stem}' in '{environments.stem}'\.
-Environment '{environment.stem}' in '{environments.stem}' removed!"""
+        rf"""Removing environment '{environment.name}' in '{environments.name}'\.
+Environment '{environment.name}' in '{environments.name}' removed!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
@@ -374,13 +387,14 @@ Environment '{environment.stem}' in '{environments.stem}' removed!"""
 def test_remove_no_confirm(environments, environment):
     """remove has expected exit-code+output when they don't say yes"""
     test_method = remove
-    test_args = f"{environment.stem} -f {environments.stem}"
+    test_args = f"{environment.name} -f {environments.name}"
     test_stdin = "n"
-    expected_exit_code = 1
+    expected_exit_code = 0
     expected_output_pattern = re.compile(
-        rf"""Removing environment '{environment.stem}' in '{environments.stem}'\. Continue\? \[Y/n]: n
-Aborted!"""
+        rf"""Removing environment '{environment.name}' in '{environments.name}'\. Continue\? \[Y/n]: n
+Skipping\.\.\.
+"""
     )
     # noinspection PyTypeChecker
     click_method_test(test_method, test_args, test_stdin, expected_exit_code, expected_output_pattern)
-    assert environment.exists()
+    assert environment.exists(), "if we said no, it's still there"
