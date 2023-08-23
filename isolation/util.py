@@ -73,12 +73,16 @@ def get_isolated_operator_env(
     }
 
 
+# noinspection RegExpAnonymousGroup
 var_template_patterns = [
     re.compile(r"{{\s*var.value.([a-zA-Z-_]+)\s*}}"),  # "{{ var.value.<> }}"
     re.compile(r"{{\s*var.json.([a-zA-Z-_]+)\s*}}"),  # "{{ var.json.<> }}"
 ]
+# noinspection RegExpAnonymousGroup
 var_object_pattern = re.compile(r"""Variable.get[(]["']([a-zA-Z-_]+)["'][)]""")  # "Variable.get(<>)"
+# noinspection RegExpAnonymousGroup
 conn_property_pattern = re.compile(r"""(?=\w*_)conn_id=["']([a-zA-Z-_]+)["']""")  # "conn_id=<>"
+# noinspection RegExpAnonymousGroup
 conn_template_pattern = re.compile(r"[{]{2}\s*conn[.]([a-zA-Z-_]+)[.]?")  # "{{ conn.<> }}"
 
 

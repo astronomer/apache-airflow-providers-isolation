@@ -55,6 +55,45 @@ Every Python module, including all hooks, operators, sensors, and transfers, sho
 - A longer description explaining how the module works. This can include details such as code blocks or blockquotes.
 - A declarative definition of parameters that you can pass to the module, templated per the example below.
 
+## CICD
+The CICD Actions that occur:
+- Whenever a push occurs:
+  - pre-commit is run to assert those checks and fixes.
+- Whenever a tag is pushed:
+  - a GitHub release is created in `DRAFT` mode:
+  - Notes are automatically created from PRs
+  - The package is built and pushed to Test PyPi
+- When a GitHub Release is Published:
+  - The package is built and pushed to PyPi
+
+## Test PyPi
+The package can be built and manually pushed to Test PyPi.
+Note: `twine` must be installed
+Further instructions are [here](https://packaging.python.org/en/latest/specifications/pypirc/#the-pypirc-file) and [here](https://packaging.python.org/en/latest/guides/using-testpypi/)
+```shell
+python -m build
+twine check dist/*
+twine upload --repository testpypi dist/*
+```
+
+You can then install with
+```shell
+mkdir test && cd test
+python -m venv venv
+source venv/bin/activate
+pip install -i https://test.pypi.org/simple/ "apache-airflow-providers-isolation[cli]"
+```
+- or just from local via
+```shell
+mkdir test && cd test
+python -m venv venv
+source venv/bin/activate
+pip install "apache-airflow-providers-isolation[cli] @ file:///absolute/path/to/apache-airflow-providers-isolation/dist/apache_airflow_providers_isolation-X.Y.Z-py3-none-any.whl"
+```
+
+This should be done seldom. It should happen via CICD when the tag is created in preparation to publish a release.
+Each version can only be uploaded once to Test PyPi so either delete the existing version (and sometimes that involves waiting an indeterminate amount of time for it to actually be deleted) or get creative with the versioning (but this should be reverted prior to pushing to the real PyPi)
+
 ## Functional Testing Standards
 
 To build your repo into a python wheel that can be tested, follow the steps below:
