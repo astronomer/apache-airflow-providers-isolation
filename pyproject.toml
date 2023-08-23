@@ -62,7 +62,8 @@ dev = [
     'docker',
     'kubernetes',
     'click',
-    'sh'
+    'sh',
+    'apache-airflow'
 ]
 
 kubernetes = [
