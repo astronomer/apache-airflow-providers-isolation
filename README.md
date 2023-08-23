@@ -14,6 +14,14 @@
 
 Created with ❤️ by the CSE Team @ Astronomer
 </h3>
+![Run Pre-Commit](https://github.com/astronomer/apache-airflow-providers-isolation/actions/workflows/pre-commit.yaml/badge.svg)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/apache-airflow-providers-isolation)
+![Codecov](https://img.shields.io/codecov/c/github/astronomer/apache-airflow-providers-isolation)
+![GitHub issues](https://img.shields.io/github/issues/astronomer/apache-airflow-providers-isolation)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/astronomer/apache-airflow-providers-isolation)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/astronomer/apache-airflow-providers-isolation)
+![PyPI - Version](https://img.shields.io/pypi/v/apache-airflow-providers-isolation)
+
 
 <!-- TOC -->
 
