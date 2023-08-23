@@ -66,7 +66,7 @@ REGISTRY_CONTAINER_IMAGE = "registry:2"
 REGISTRY_CONTAINER_URI = "localhost:5000"
 
 # We don't *need* apache-airflow-providers-isolation[kubernetes] in child environments - but - can't hurt to add?
-ADD_PROVIDER_TO_ENVIRONMENT = False
+ADD_PROVIDER_TO_ENVIRONMENT = True
 AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY = "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE"
 
 
