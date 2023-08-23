@@ -3,7 +3,7 @@ existing checks and practices.
 
 <!-- TOC -->
 
-* [Contributing](#contributing)
+* [Development Workflow](#development-workflow)
     * [Versioning](#versioning)
     * [Development](#development)
         * [Pre-Commit](#pre-commit)
@@ -12,6 +12,8 @@ existing checks and practices.
     * [Testing](#testing)
     * [Documentation Standards](#documentation-standards)
         * [Inline Module Documentation](#inline-module-documentation)
+    * [CICD](#cicd)
+    * [Test PyPi](#test-pypi)
     * [Functional Testing Standards](#functional-testing-standards)
     * [Publishing your Provider repository for the Astronomer Registry](#publishing-your-provider-repository-for-the-astronomer-registry)
 

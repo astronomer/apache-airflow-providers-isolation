@@ -18,7 +18,7 @@ Created with ❤️ by the CSE Team @ Astronomer
 <!-- TOC -->
 
 * [Summary](#summary)
-* [Local Quickstart](#local-quickstart)
+* [Quickstart](#quickstart)
     * [Pre-requisites:](#pre-requisites)
     * [Steps](#steps)
 * [Installation](#installation)
