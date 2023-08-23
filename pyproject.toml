@@ -170,7 +170,8 @@ exclude_dirs = ["tests"]
 skips = [
     "B324",
     "B608",
-    "B106"
+    "B106",
+    "B310"  # don't complain about urllib
 ]
 
 known_typing = ["typing", "types", "typing_extensions", "mypy", "mypy_extensions"]

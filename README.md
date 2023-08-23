@@ -160,6 +160,25 @@ pip install apache-airflow-providers-isolation[cli]
 
 # Usage
 
+```python
+from datetime import datetime
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+from isolation.operators.isolation import IsolatedOperator
+
+with DAG(
+    "isolation_provider_example_dag",
+    schedule=None,
+    start_date=datetime(1970, 1, 1),
+):
+    IsolatedOperator(
+        task_id="echo_with_bash_operator",
+        operator=BashOperator,
+        environment="example",
+        bash_command="echo {{ params.hi }}",
+    )
+```
+
 # How
 
 ![A diagram documenting the flow from IsolatedOperator to KubernetesPodOperator to a pod to PostIsolationHook to OtherOperator](https://lucid.app/publicSegments/view/1695b264-e325-4c13-9c08-6b7b92da867d/image.png)
