@@ -162,7 +162,7 @@ pip install apache-airflow-providers-isolation[cli]
 
 # How
 
-![A diagram documenting the flow from IsolatedOperator to KubernetesPodOperator to a pod to PostIsolationHook to OtherOperator](./overview.png)
+![A diagram documenting the flow from IsolatedOperator to KubernetesPodOperator to a pod to PostIsolationHook to OtherOperator](https://lucid.app/publicSegments/view/1695b264-e325-4c13-9c08-6b7b92da867d/image.png)
 
 ## What it is
 
