@@ -81,7 +81,7 @@ def test_add_requirement_not_exists(requirements_txt):
     requirements_txt.unlink(missing_ok=True)
     add_requirement(requirements_txt)
     actual = requirements_txt.read_text()
-    expected = get_provider_package()
+    expected = get_provider_package() + "\n"
     assert actual == expected
 
 
@@ -90,7 +90,7 @@ def test_add_requirement_empty(requirements_txt):
     requirements_txt.touch()
     add_requirement(requirements_txt)
     actual = requirements_txt.read_text()
-    expected = f"\n{get_provider_package()}"
+    expected = get_provider_package() + "\n"
     assert actual == expected
 
 
@@ -100,7 +100,8 @@ def test_add_requirement_existing_contents(requirements_txt):
     add_requirement(requirements_txt)
     actual = requirements_txt.read_text()
     expected = f"""{test_contents}
-{get_provider_package()}"""
+{get_provider_package()}
+"""
     assert actual == expected
 
 
