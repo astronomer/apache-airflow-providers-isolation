@@ -248,7 +248,7 @@ def extract_kubeconfig_to_str(replace_for_docker: bool = True) -> str:
 
     s = StringIO()
     # noinspection PyUnresolvedReferences
-    sh.kubectl.config.view(_out=s)
+    sh.kubectl.config.view("--raw", _out=s)
     return urllib.parse.quote(
         yaml.dump(
             yaml.safe_load(
