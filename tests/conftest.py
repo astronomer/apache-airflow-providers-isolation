@@ -13,7 +13,13 @@ import sh
 import isolation
 
 # noinspection PyProtectedMember
-from isolationctl import EXAMPLE_ENVIRONMENT, SH_KWARGS, create_registry_docker_container, _add
+from isolationctl import (
+    EXAMPLE_ENVIRONMENT,
+    SH_KWARGS,
+    create_registry_docker_container,
+    _add,
+    DEFAULT_ENVIRONMENTS_FOLDER,
+)
 
 manual_tests = pytest.mark.skipif(not bool(os.getenv("MANUAL_TESTS")), reason="requires env setup")
 
@@ -182,7 +188,40 @@ def environments():
 
 
 @pytest.fixture(scope="function")
+def default_environments():
+    # Setup - Add if not already added
+    _environments = Path(DEFAULT_ENVIRONMENTS_FOLDER)
+    _environments.mkdir(parents=True, exist_ok=True)
+
+    yield _environments
+
+    # Teardown - Remove if not already removed
+    try:
+        shutil.rmtree(_environments)
+    except Exception as e:
+        sys.stderr.write(str(e))
+
+
+# noinspection DuplicatedCode
+@pytest.fixture(scope="function")
 def environment(environments):
+    # Setup - Add if not already added
+    _environment = environments / EXAMPLE_ENVIRONMENT
+    _environment.mkdir(parents=True, exist_ok=True)
+    _add(_environment.name, environments.name)
+
+    yield _environment
+
+    # Teardown - Remove if not already removed
+    try:
+        shutil.rmtree(_environment)
+    except Exception as e:
+        sys.stderr.write(str(e))
+
+
+# noinspection DuplicatedCode
+@pytest.fixture(scope="function")
+def default_environment(environments):
     # Setup - Add if not already added
     _environment = environments / EXAMPLE_ENVIRONMENT
     _environment.mkdir(parents=True, exist_ok=True)

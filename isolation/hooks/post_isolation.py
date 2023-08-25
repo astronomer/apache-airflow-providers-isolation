@@ -1,8 +1,8 @@
 import itertools
+import re
 from copy import copy
 from pathlib import Path
 from typing import Any, Dict, Type, Tuple, List, Optional
-import re
 
 from isolation.util import (
     b64decode_json,
@@ -72,10 +72,14 @@ def _get_operator_args_via_env() -> Tuple[List[Any], Dict[str, Any]]:
 
 
 def _get_context_via_env() -> "Context":  # noqa: F821
-    # noinspection PyUnresolvedReferences,PyTrailingSemicolon
+    # noinspection PyUnresolvedReferences,PyTrailingSemicolon,SpellCheckingInspection
     """Retrieve a json-serialized version of a subset
     of the Airflow Context object and recreate
     >>> from isolation.util import b64encode_json; import os
+    >>> a = "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="
+    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = a
+    >>> r = _get_context_via_env(); r['params'], type(r['ds'])
+    ({'foo': 'bar'}, <class 'pendulum.datetime.DateTime'>)
     >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
     ...     {}
     ... ); r = _get_context_via_env(); r['params'], type(r['ds']) # Empty
@@ -100,6 +104,8 @@ def _get_context_via_env() -> "Context":  # noqa: F821
     key = PostIsolationHook.required_environment_variables[_get_context_via_env.__name__]
     encoded_context_json = getenv_or_raise(key)
     context_json = b64decode_json(encoded_context_json) if encoded_context_json != "" else {}
+    if not isinstance(context_json, dict):
+        raise RuntimeError(f"{key} did not decode to JSON - Value: {encoded_context_json}, Decoded: {context_json}")
 
     required_keys = ["ds", "params"]
     context_serialization_mappings = {
@@ -148,9 +154,12 @@ def _patch_post_execute_for_xcom(task) -> None:
     def new_fn(context, result):
         if result:
             xcom_path = Path(XCOM_FILE)
-            xcom_path.parent.mkdir(parents=True, exist_ok=True)
-            with xcom_path.open("w") as f:
-                f.write(result)
+            try:
+                xcom_path.parent.mkdir(parents=True, exist_ok=True)
+                with xcom_path.open("w") as f:
+                    f.write(result)
+            except PermissionError as e:
+                raise RuntimeError("Unable to write XCOM") from e
         return original_fn(context, result)
 
     task.post_execute = new_fn

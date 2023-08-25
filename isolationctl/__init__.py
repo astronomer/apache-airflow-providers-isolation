@@ -68,6 +68,7 @@ REGISTRY_CONTAINER_URI = "localhost:5000"
 # We don't *need* apache-airflow-providers-isolation[kubernetes] in child environments - but - can't hurt to add?
 ADD_PROVIDER_TO_ENVIRONMENT = True
 AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY = "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE"
+KUBERNETES_CONN_KEY = "AIRFLOW_CONN_KUBERNETES_DEFAULT"
 
 
 def write_tag_to_dot_env(
@@ -80,7 +81,7 @@ def write_tag_to_dot_env(
         dot_env.touch(exist_ok=True)
 
     with dot_env.open(mode="a") as f:
-        f.write(f"{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{registry}/{image}'")
+        f.write(f"{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{registry}/{image}'\n")
 
 
 def get_provider_package(extras: str = "kubernetes") -> str:
@@ -92,13 +93,15 @@ def add_requirement(requirements_txt: Path, extras: str = "kubernetes") -> None:
     provider_package = get_provider_package(extras)
     if requirements_txt.exists():
         main_echo(f"'{requirements_txt.name}' file found, appending provider...")
+        existing_contents = requirements_txt.read_text()
+        prefix = "" if not existing_contents or existing_contents[:-2] == "\n" else "\n"
         with requirements_txt.open("a") as f:
-            f.write(f"\n{provider_package}")
+            f.write(f"{prefix}{provider_package}\n")
     elif requirements_txt.exists() and ISOLATION_PROVIDER_PACKAGE in requirements_txt.read_text():
         main_echo(f"'{requirements_txt.name}' already contains {ISOLATION_PROVIDER_PACKAGE}! Skipping...")
     else:
         requirements_txt.touch(exist_ok=True)
-        requirements_txt.write_text(provider_package)
+        requirements_txt.write_text(f"{provider_package}\n")
 
 
 def print_table(header: List[str], rows: List[List[str]]):
@@ -248,7 +251,7 @@ def extract_kubeconfig_to_str(replace_for_docker: bool = True) -> str:
 
     s = StringIO()
     # noinspection PyUnresolvedReferences
-    sh.kubectl.config.view(_out=s)
+    sh.kubectl.config.view("--raw", _out=s)
     return urllib.parse.quote(
         yaml.dump(
             yaml.safe_load(

@@ -1,7 +1,6 @@
 import re
 import shutil
 import sys
-from pathlib import Path
 from typing import Optional, Pattern
 
 import pytest
@@ -65,7 +64,10 @@ Deployed environment: '{es}/{e}', image: '{REGISTRY_CONTAINER_URI}/[\w\-_]+/airf
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -88,7 +90,10 @@ Initialized!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -114,7 +119,10 @@ Initialized!.*""",
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -128,17 +136,19 @@ def test_init_local(environments, dotenv):
     expected_output_pattern = re.compile(
         rf"""Creating an environments folder in '{environments.name}' in '{environments.parent.absolute()}'\.\.\.
 Initializing --local connection\.\.\.
-kubectl found\.\.\.
-.*
+kubectl found\.\.\..*
 \.env file found\.\.\.
-Writing KUBERNETES_DEFAULT Airflow Connection to \.env file\.\.\.
-Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to \.env file\.\.\.
+Writing KUBERNETES_DEFAULT Airflow Connection for local kubernetes to \.env file\.\.\.
+Writing AIRFLOW__ISOLATED_POD_OPERATOR__\* variables for local kubernetes to \.env file\.\.\.
 Initialized!\n""",
         re.DOTALL,
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
     assert dotenv.exists()
     actual_dotenv = dotenv.read_text()
@@ -151,14 +161,17 @@ Initialized!\n""",
 Initializing --local connection\.\.\.
 kubectl found\.\.\..*
 \.env file not found - Creating\.\.\.
-Writing KUBERNETES_DEFAULT Airflow Connection to \.env file\.\.\.
-Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to \.env file\.\.\.
+Writing KUBERNETES_DEFAULT Airflow Connection for local kubernetes to \.env file\.\.\.
+Writing AIRFLOW__ISOLATED_POD_OPERATOR__\* variables for local kubernetes to \.env file\.\.\.
 Initialized!\n""",
         re.DOTALL,
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
     assert dotenv.exists()
     actual_dotenv = dotenv.read_text()
@@ -185,7 +198,10 @@ Local docker Image Registry container already created\.\.\. Recreating\.\.\.
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
     results = find_docker_container("registry")
@@ -208,11 +224,15 @@ Folder '{environments.name}/{environment}/' created!
 'requirements\.txt' file found, appending provider\.\.\.
 '{environments.name}/{environment}/packages\.txt' added!
 Environment '{environment}' in '{environments.name}' created!
+Adding 'dags/isolation_provider_example_dag.py' to 'dags/'...
 Initialized!\n"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -226,7 +246,10 @@ Initialized!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -242,15 +265,15 @@ Initialized!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
-def test__add_default_folder():
-    environments = Path(DEFAULT_ENVIRONMENTS_FOLDER)
-    environments.mkdir(parents=True, exist_ok=True)
-
-    environment = environments / "foo"
+def test__add_default_folder(default_environments):
+    environment = default_environments / "foo"
     dockerfile = environment / "Dockerfile"
     requirements_txt = environment / "requirements.txt"
     packages_txt = environment / "packages.txt"
@@ -262,8 +285,6 @@ def test__add_default_folder():
     assert dockerfile.exists()
     assert requirements_txt.exists()
     assert packages_txt.exists()
-
-    shutil.rmtree(environments, ignore_errors=True)
 
 
 def test__add_non_default_folder(environments, environment, dockerfile, requirements_txt, packages_txt):
@@ -301,7 +322,10 @@ def test_get(environments, environment):
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -322,7 +346,10 @@ environments_baz/b {10}|
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -343,7 +370,10 @@ Environment '{environment.name}' in '{environments.name}' created!\n"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -357,7 +387,10 @@ Environment '{environment.name}' in '{environments.name}' already exists - to re
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
 
 
@@ -374,7 +407,10 @@ Environment '{environment.name}' in '{environments.name}' does not exist"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
     assert not environment.exists()
 
@@ -391,7 +427,10 @@ Environment '{environment.name}' in '{environments.name}' removed!"""
     )
     # noinspection PyTypeChecker
     click_method_test(
-        test_method, test_args, expected_exit_code=expected_exit_code, expected_output_pattern=expected_output_pattern
+        test_method,
+        test_args,
+        expected_exit_code=expected_exit_code,
+        expected_output_pattern=expected_output_pattern,
     )
     assert not environment.exists()
 

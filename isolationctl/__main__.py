@@ -2,8 +2,11 @@ import logging
 import os
 import shutil
 import sys
+import textwrap
 from pathlib import Path
 from typing import Optional
+from urllib.error import HTTPError
+from urllib.request import urlretrieve
 
 import click
 import sh
@@ -34,6 +37,8 @@ from isolationctl import (
     _get,
     write_tag_to_dot_env,
     REGISTRY_CONTAINER_URI,
+    EXAMPLE_ENVIRONMENT,
+    KUBERNETES_CONN_KEY,
 )
 
 log = logging.getLogger(__name__)
@@ -210,7 +215,18 @@ def init(
 
     if example:
         main_echo("Initializing --example environment...")
-        ctx.invoke(add, env="example", yes=yes, folder=folder)
+        ctx.invoke(add, env=EXAMPLE_ENVIRONMENT, yes=yes, folder=folder)
+
+        if not confirm_or_skip("Adding 'dags/isolation_provider_example_dag.py' to 'dags/'...", yes):
+            example_dag = (
+                "https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/"
+                "main/isolation/example_dags/isolation_provider_example_dag.py"
+            )
+            try:
+                Path("dags").mkdir(exist_ok=True, parents=True)
+                urlretrieve(example_dag, "dags/isolation_provider_example_dag.py")
+            except HTTPError as e:
+                main_echo(f"Error finding example DAG: {example_dag} -- Reason:{e.reason}")
 
     if astro:
         requirements_txt = Path("requirements.txt")
@@ -265,7 +281,6 @@ def init(
         if shutil.which("kubectl") is not None:
             main_echo("kubectl found...")
             encoded_kubeconfig = extract_kubeconfig_to_str()
-            kubernetes_conn_key = "AIRFLOW_CONN_KUBERNETES_DEFAULT"
             kubernetes_conn_value = (
                 "kubernetes://?extra__kubernetes__namespace=default"
                 f"&extra__kubernetes__kube_config={encoded_kubeconfig}"
@@ -275,10 +290,21 @@ def init(
                     dot_env.touch(exist_ok=True)
             else:
                 main_echo(".env file found...")
-            if not confirm_or_skip("Writing KUBERNETES_DEFAULT Airflow Connection to .env file...", yes):
-                dot_env.open("a").write(f"{kubernetes_conn_key}={kubernetes_conn_value}")
-            if not confirm_or_skip("Writing AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID to .env file...", yes):
-                dot_env.open("a").write("AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID='kubernetes_default'")
+            if not confirm_or_skip(
+                "Writing KUBERNETES_DEFAULT Airflow Connection for local kubernetes to .env file...", yes
+            ):
+                dot_env.open("a").write(f"{KUBERNETES_CONN_KEY}={kubernetes_conn_value}\n")
+            if not confirm_or_skip(
+                "Writing AIRFLOW__ISOLATED_POD_OPERATOR__* variables for local kubernetes to .env file...", yes
+            ):
+                dot_env.open("a").write(
+                    textwrap.dedent(
+                        """
+                        AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID='kubernetes_default'
+                        AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_PULL_POLICY="Never"
+                        """
+                    )
+                )
         else:
             main_echo("Cannot find kubectl. " "Expecting Kubernetes to be set up for local execution. Skipping...")
 

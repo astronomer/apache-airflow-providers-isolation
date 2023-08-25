@@ -49,8 +49,9 @@ dev = [
     'pytest-sugar',
     'pytest',
     'pytest-cov',
-    'pytest-dotenv',
-    'pytest-integration',
+#    'pytest-dotenv',
+    'pytest-mock',
+#    'pytest-integration',
     'pytest-env',
     'detect-secrets',
     'ruff',
@@ -170,7 +171,8 @@ exclude_dirs = ["tests"]
 skips = [
     "B324",
     "B608",
-    "B106"
+    "B106",
+    "B310"  # don't complain about urllib
 ]
 
 known_typing = ["typing", "types", "typing_extensions", "mypy", "mypy_extensions"]
@@ -195,6 +197,7 @@ doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAI
 addopts = [
     "-s",
     "--continue-on-collection-errors",
+    "--ignore=dags/",
     "--ignore=tests/resources",
     "--ignore=isolation/example_dags",
     "--strict-markers",

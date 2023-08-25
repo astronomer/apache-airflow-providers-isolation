@@ -26,6 +26,8 @@ def b64decode_json(s: str) -> Dict[str, Any]:
 
     :raises: RuntimeError if input is not b64
     :raises: RuntimeError if input is not valid JSON
+    >>> b64decode_json("InsnZHMnOiAnZm9vJywgJ3BhcmFtcyc6IHsnZm9vJzogJ2Jhcid9fSI=")
+    "{'ds': 'foo', 'params': {'foo': 'bar'}}"
     >>> b64decode_json('eyJmb28iOiAiYmFyIn0=')
     {'foo': 'bar'}
     >>> b64decode_json("garbage")   # Garbage - not b64
@@ -35,7 +37,7 @@ def b64decode_json(s: str) -> Dict[str, Any]:
     >>> b64decode_json("{{}") # Garbage - not json
     Traceback (most recent call last):
         ...
-    RuntimeError: Input is not encoded correctly as json! Got: b'' . Cannot proceed!
+    RuntimeError: Input is not encoded correctly as json! Got: b'' from '{{}'. Cannot proceed!
     """
     try:
         decoded_j = base64.b64decode(s)
