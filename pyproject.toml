@@ -197,6 +197,7 @@ doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAI
 addopts = [
     "-s",
     "--continue-on-collection-errors",
+    "--ignore=dags/",
     "--ignore=tests/resources",
     "--ignore=isolation/example_dags",
     "--strict-markers",

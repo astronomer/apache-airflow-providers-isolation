@@ -217,14 +217,16 @@ def init(
         main_echo("Initializing --example environment...")
         ctx.invoke(add, env=EXAMPLE_ENVIRONMENT, yes=yes, folder=folder)
 
-        example_dag = (
-            "https://github.com/astronomer/apache-airflow-providers-isolation/"
-            "blob/main/isolation/example_dags/isolation_provider_example_dag.py"
-        )
-        try:
-            urlretrieve(example_dag, "dags/isolation_provider_example_dag.py")
-        except HTTPError as e:
-            main_echo(f"Error finding example DAG: {example_dag} -- Reason:{e.reason}")
+        if not confirm_or_skip("Adding 'dags/isolation_provider_example_dag.py' to 'dags/'...", yes):
+            example_dag = (
+                "https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/"
+                "main/isolation/example_dags/isolation_provider_example_dag.py"
+            )
+            try:
+                Path("dags").mkdir(exist_ok=True, parents=True)
+                urlretrieve(example_dag, "dags/isolation_provider_example_dag.py")
+            except HTTPError as e:
+                main_echo(f"Error finding example DAG: {example_dag} -- Reason:{e.reason}")
 
     if astro:
         requirements_txt = Path("requirements.txt")
