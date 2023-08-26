@@ -22,7 +22,7 @@ COPY packages.txt .
 USER root
 RUN if [[ -s packages.txt ]]; then \
     apt-get update && cat packages.txt | tr '\r\n' '\n' | sed -e 's/#.*//' | \
-        xargs apt-get install -y \ --no-install-recommends \
+        xargs apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*; \
   fi
