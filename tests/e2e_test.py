@@ -1,5 +1,4 @@
 import sys
-import textwrap
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
@@ -34,19 +33,10 @@ def test_e2e(
     # 1. pip install apache-airflow-providers-isolation[cli]
     # 2. isolationctl init --example --local --local-registry --astro --git --dependency
     # noinspection PyTypeChecker
-    CliRunner().invoke(
-        init, "--yes --example --local --local-registry --astro --git --dependency"
-    )
+    CliRunner().invoke(init, "--yes --example --local --local-registry --astro --git --dependency")
 
     # Just to clean up the output a bit
-    Path(".env").open("a").write(
-        textwrap.dedent(
-            """
-            OPENLINEAGE_DISABLED=true
-            AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
-            """
-        )
-    )
+    Path(".env").open("a").write("\nOPENLINEAGE_DISABLED=true\n")
 
     # 3. echo "\npandas==1.4.2" >> environments/example/requirements.txt
     (default_environment / "requirements.txt").open("a").write("\npandas==1.4.2\n")
@@ -59,15 +49,8 @@ def test_e2e(
 
     # 6. wget https://raw.githubusercontent.com/
     # astronomer/apache-airflow-providers-isolation/main/isolation /example_dags/isolation_provider_example_dag.py
-    example_dag_source = (
-        project_root
-        / "isolation"
-        / "example_dags"
-        / "isolation_provider_example_dag.py"
-    )
-    assert (
-        example_dag_source.exists()
-    ), "We have an example dag where we expect it, named as we expect it"
+    example_dag_source = project_root / "isolation" / "example_dags" / "isolation_provider_example_dag.py"
+    assert example_dag_source.exists(), "We have an example dag where we expect it, named as we expect it"
     example_dag_dest = Path("dags/isolation_provider_example_dag.py")
     copyfile(example_dag_source, example_dag_dest)
 
@@ -99,9 +82,7 @@ def test_e2e(
         raise e
 
     actual = s.getvalue()
-    parent_pandas_running = (
-        """Running \x1b[1;33mparent_pandas\x1b[0m\x1b[33m...\x1b[0m"""
-    )
+    parent_pandas_running = """Running \x1b[1;33mparent_pandas\x1b[0m\x1b[33m...\x1b[0m"""
     parent_pandas_output = """op_classpath=airflow.operators.python.PythonOperator\r\nPandas Version: 2.0.3 \r\nAnd printing other stuff for fun: \r\narg='Hello!', ds='2023-08-25', params={'hi': 'hello'}\r\n\x1b[1;32mSUCCESS"""
     assert parent_pandas_running in actual
     assert parent_pandas_output in actual
