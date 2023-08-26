@@ -117,7 +117,11 @@ def print_table(header: List[str], rows: List[List[str]]):
 
 
 def build_image_via_docker(
-    tag: str, build_args: Optional[Dict[str, Any]] = None, push: bool = False, should_log: bool = False
+    tag: str,
+    build_args: Optional[Dict[str, Any]] = None,
+    push: bool = False,
+    should_log: bool = False,
+    directory: str = ".",
 ) -> str:
     """docker build . --tag=TAG --build-arg="BUILD_ARGS" """
     import docker
@@ -127,7 +131,7 @@ def build_image_via_docker(
 
     client = docker.from_env()
 
-    image, logs = client.images.build(path=".", tag=tag, buildargs=build_args)
+    image, logs = client.images.build(path=directory, tag=tag, buildargs=build_args)
     if should_log:
         for log in logs:
             sys.stdout.write(json.dumps(log))
@@ -141,20 +145,20 @@ def build_image_via_docker(
     return tag
 
 
-def build_image_via_astro_parse(should_log: bool = False) -> str:
+def build_image_via_astro_parse(should_log: bool = False, directory: str = ".") -> str:
     """astro dev parse, which happens to build the image as a side effect"""
     s = StringIO()
-    sh.astro.dev.parse(_in=sys.stdin, _out=s, _err_to_out=True, _tee=True, _tty_size=(24, 200))
+    sh.astro.dev.parse(_in=sys.stdin, _out=s, _cwd=directory, _err_to_out=True, _tee=True, _tty_size=(24, 200))
     output = s.getvalue()
     if should_log:
         sys.stdout.write(output)
     return output
 
 
-def build_image_via_astro_pytest(should_log: bool = False) -> str:
+def build_image_via_astro_pytest(should_log: bool = False, directory: str = ".") -> str:
     """astro dev pytest, which happens to build the image as a side effect"""
     s = StringIO()
-    sh.astro.dev.pytest(_in=sys.stdin, _out=s, _err_to_out=True, _tee=True, _tty_size=(24, 500))
+    sh.astro.dev.pytest(_in=sys.stdin, _out=s, _cwd=directory, _err_to_out=True, _tee=True, _tty_size=(24, 500))
     output = s.getvalue()
     if should_log:
         sys.stdout.write(output)
@@ -168,15 +172,16 @@ def build_image(
     push: bool = False,
     get_docker_tag: bool = True,
     should_log: bool = True,
+    directory: str = ".",
 ) -> Optional[str]:
     """Build a docker image via one of multiple methods"""
     docker_tag, output = None, None
     if method == "docker":
-        docker_tag = build_image_via_docker(tag, build_args, push, should_log)
+        docker_tag = build_image_via_docker(tag, build_args, push, should_log, directory)
     elif method == "astro-parse":
-        output = build_image_via_astro_parse(should_log)
+        output = build_image_via_astro_parse(should_log, directory)
     elif method == "astro-pytest":
-        output = build_image_via_astro_pytest(should_log)
+        output = build_image_via_astro_pytest(should_log, directory)
     else:
         raise RuntimeError("Methods for building the parent image are astro or docker")
 
