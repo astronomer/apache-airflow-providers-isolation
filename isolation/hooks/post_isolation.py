@@ -29,7 +29,7 @@ def _verify_kwargs(kwargs: Dict[str, Any]):
     kwargs["do_xcom_push"] = False
 
 
-def _get_operator_args_via_env() -> Tuple[List[Any], Dict[str, Any]]:
+def _get_operator_args_via_env(operator_args: Optional[str] = None) -> Tuple[List[Any], Dict[str, Any]]:
     # noinspection PyUnresolvedReferences, PyProtectedMember
     """Return *args and **kwargs for the operator,
     encoded as {"args":args,"kwargs":kwargs} as a b64 encoded json
@@ -41,19 +41,19 @@ def _get_operator_args_via_env() -> Tuple[List[Any], Dict[str, Any]]:
     Traceback (most recent call last):
         ...
     RuntimeError: __ISOLATED_OPERATOR_OPERATOR_ARGS must be set!
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = ""; _get_operator_args_via_env()   # Empty
+    >>> _get_operator_args_via_env("")   # Empty
     ([], {})
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = b64encode_json(
-    ...     {"args":["foo", 1], "kwargs":{"a": 1, "b": 2, "c": datetime.datetime(1970, 1, 1)}},
-    ... ); _get_operator_args_via_env()   # Happy Path
+    >>> _get_operator_args_via_env(
+    ...     b64encode_json({"args":["foo", 1], "kwargs":{"a": 1, "b": 2, "c": datetime.datetime(1970, 1, 1)}})
+    ... )   # Happy Path
     (['foo', 1], {'a': 1, 'b': 2, 'c': '1970-01-01 00:00:00'})
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_ARGS'] = b64encode_json(
-    ...     {"args": [], "kwargs": {}}
-    ... ); _get_operator_args_via_env()   # Happy & Empty
+    >>> _get_operator_args_via_env(
+    ...     b64encode_json({"args": [], "kwargs": {}})
+    ... )   # Happy & Empty
     ([], {})
     """
     key = PostIsolationHook.required_environment_variables[_get_operator_args_via_env.__name__]
-    encoded_args_json = getenv_or_raise(key)
+    encoded_args_json = getenv_or_raise(key) if operator_args is None else operator_args
     if not encoded_args_json:
         return [], {}
     args_json = b64decode_json(encoded_args_json)
@@ -71,30 +71,26 @@ def _get_operator_args_via_env() -> Tuple[List[Any], Dict[str, Any]]:
     return args, kwargs
 
 
-def _get_context_via_env() -> "Context":  # noqa: F821
+def _get_context_via_env(context: Optional[str] = None) -> "Context":  # noqa: F821
     # noinspection PyUnresolvedReferences,PyTrailingSemicolon,SpellCheckingInspection
     """Retrieve a json-serialized version of a subset
     of the Airflow Context object and recreate
-    >>> from isolation.util import b64encode_json; import os
-    >>> a = "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = a
-    >>> r = _get_context_via_env(); r['params'], type(r['ds'])
+    >>> from isolation.util import b64encode_json
+    >>> r = _get_context_via_env(
+    ...     "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="
+    ... ); r['params'], type(r['ds'])
     ({'foo': 'bar'}, <class 'pendulum.datetime.DateTime'>)
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
-    ...     {}
-    ... ); r = _get_context_via_env(); r['params'], type(r['ds']) # Empty
+    >>> r = _get_context_via_env(b64encode_json({})); r['params'], type(r['ds']) # Empty
     ({}, <class 'pendulum.datetime.DateTime'>)
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = ''; r = _get_context_via_env(); r['params'], type(r['ds'])
+    >>> r = _get_context_via_env(''); r['params'], type(r['ds'])
     ({}, <class 'pendulum.datetime.DateTime'>)
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
-    ...     {"ds": "foo"}
-    ... ); r = _get_context_via_env() # bad de-ser data
+    >>> r = _get_context_via_env(b64encode_json({"ds": "foo"})) # bad de-ser data
     Traceback (most recent call last):
         ...
     pendulum.parsing.exceptions.ParserError: Unable to parse string [foo]
-    >>> os.environ['__ISOLATED_OPERATOR_AIRFLOW_CONTEXT'] = b64encode_json(
-    ...     {"params": {"foo": "bar"}}
-    ... ); r = _get_context_via_env(); r['params'], type(r['params'])  # good params data
+    >>> r = _get_context_via_env(
+    ...     b64encode_json({"params": {"foo": "bar"}})
+    ... ); r['params'], type(r['params'])  # good params data
     ({'foo': 'bar'}, <class 'airflow.models.param.ParamsDict'>)
     """
     from airflow.utils.context import Context
@@ -102,7 +98,7 @@ def _get_context_via_env() -> "Context":  # noqa: F821
     from airflow.models.param import ParamsDict
 
     key = PostIsolationHook.required_environment_variables[_get_context_via_env.__name__]
-    encoded_context_json = getenv_or_raise(key)
+    encoded_context_json = getenv_or_raise(key) if context is None else context
     context_json = b64decode_json(encoded_context_json) if encoded_context_json != "" else {}
     if not isinstance(context_json, dict):
         raise RuntimeError(f"{key} did not decode to JSON - Value: {encoded_context_json}, Decoded: {context_json}")
@@ -125,15 +121,14 @@ def _get_context_via_env() -> "Context":  # noqa: F821
     return Context(**context_json)
 
 
-def _get_operator_via_env() -> Type["BaseOperator"]:  # noqa: F821
+def _get_operator_via_env(operator_qualname: Optional[str] = None) -> Type["BaseOperator"]:  # noqa: F821
     """Instantiate the operator via the qualified name saved in __ISOLATED_OPERATOR_OPERATOR_QUALNAME
-    >>> import os
-    >>> os.environ['__ISOLATED_OPERATOR_OPERATOR_QUALNAME']="datetime.datetime"; _get_operator_via_env()
+    >>> _get_operator_via_env("datetime.datetime")
     <class 'datetime.datetime'>
     """
     # Sanity check - __ISOLATED_OPERATOR_OPERATOR_QUALNAME=a.b.c.d.MyOperator
     key = PostIsolationHook.required_environment_variables[_get_operator_via_env.__name__]
-    operator_qualname = getenv_or_raise(key)
+    operator_qualname = getenv_or_raise(key) if operator_qualname is None else operator_qualname
     # split out - a.b.c.d, MyOperator
     return import_from_qualname(operator_qualname)
 

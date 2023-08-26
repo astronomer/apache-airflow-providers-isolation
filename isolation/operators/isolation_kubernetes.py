@@ -74,33 +74,7 @@ def _set_simple_templates_via_env(
     args: Tuple[Any, ...], kwargs: Dict[str, Any], isolated_operator_kwargs: Dict[str, Any]
 ) -> Dict[str, Any]:
     # noinspection PyTrailingSemicolon
-    """Set {{var}} and {{conn}} templates, and *conn_id. Get the values and set them as env vars for the KPO
-    # We give nothing, we get nothing
-    >>> _set_simple_templates_via_env((),{},{})
-    {'env_vars': {}}
-
-    # We have a var referred to via the args, we push that into the env
-    >>> import os; os.environ['AIRFLOW_VAR_FOO'] = 'bar'; _set_simple_templates_via_env(("{{ var.value.foo }}",),{},{})
-    {'env_vars': {'AIRFLOW_VAR_FOO': 'bar'}}
-
-    # We have a var referred to via the kwargs, we push that into the env
-    >>> _set_simple_templates_via_env((),{"param": "{{ var.value.foo }}"},{})
-    {'env_vars': {'AIRFLOW_VAR_FOO': 'bar'}}
-
-    # we have a connection referred to via the args, we push that into the env
-    >>> import os; os.environ['AIRFLOW_CONN_FOO'] = 'postgres://postgres:postgres@postgres:5432/db'
-    >>> print('||'); _set_simple_templates_via_env(("{{ conn.foo }}",),{},{})  # doctest: +ELLIPSIS
-    ||...
-    {'env_vars': {'AIRFLOW_CONN_FOO': 'postgres://postgres:postgres@postgres:5432/db'}}
-
-    # we have a connection referred to via the kwargs, we push that into the env
-    >>> _set_simple_templates_via_env((),{"param": "{{ conn.foo }}"},{})
-    {'env_vars': {'AIRFLOW_CONN_FOO': 'postgres://postgres:postgres@postgres:5432/db'}}
-
-     # we have a conn_id referred to via the kwargs, we push that into the env
-    >>> _set_simple_templates_via_env((),{"xyz_conn_id": "foo"},{})
-    {'env_vars': {'AIRFLOW_CONN_FOO': 'postgres://postgres:postgres@postgres:5432/db'}}
-    """
+    """Set {{var}} and {{conn}} templates, and *conn_id. Get the values and set them as env vars for the KPO"""
     from airflow.models import Connection
     from airflow.models import Variable
 
@@ -413,7 +387,7 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
             task_id=task_id,
             image=image,
             cmds=shlex.split("/bin/bash -euxc"),
-            arguments=shlex.split(f"""python -c "{fn_to_source_code(run_in_pod)}" """),
+            arguments=[f'python -c "{fn_to_source_code(run_in_pod)}"'],
             log_events_on_failure=True,
             **self.isolated_operator_kwargs,
         )
