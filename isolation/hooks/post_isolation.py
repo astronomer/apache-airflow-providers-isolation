@@ -142,12 +142,13 @@ def _patch_task_dependencies(task) -> None:
     task.iter_mapped_dependants = blackhole
 
 
-def _patch_post_execute_for_xcom(task) -> None:
+def _patch_post_execute_for_xcom(task, kwargs: Optional[Dict[str, Any]] = None) -> None:
     """Patch the 'task.post_execute' method - write a xcom then run the original"""
     original_fn = task.post_execute
+    do_xcom_push = kwargs["do_xcom_push"] if kwargs is not None and "do_xcom_push" in kwargs else False
 
     def new_fn(context, result):
-        if result:
+        if result and do_xcom_push:
             xcom_path = Path(XCOM_FILE)
             try:
                 xcom_path.parent.mkdir(parents=True, exist_ok=True)
@@ -235,7 +236,7 @@ class PostIsolationHook:
         _transform_args(args, kwargs)
         task = operator(*args, **kwargs)
         _patch_task_dependencies(task)
-        _patch_post_execute_for_xcom(task)
+        _patch_post_execute_for_xcom(task, kwargs)
 
         context = _get_context_via_env()
         with set_current_context(context):
