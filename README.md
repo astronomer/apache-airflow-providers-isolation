@@ -120,7 +120,7 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
    tasks
 
     ```shell
-    wget https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/main/isolation/example_dags/isolation_provider_example_dag.py
+    wget --output-document dags/isolation_provider_example_dag.py https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/main/isolation/example_dags/isolation_provider_example_dag.py
     ```
 
 7. Add the Kubernetes Provider to the Astro project (_not required_ - it is a transitive dependency - but always good to
@@ -133,7 +133,7 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
 8. Start the Airflow Project
 
     ```shell
-    astro dev start
+    astro dev start --no-browser
     ```
 
 9. Run the example DAG
