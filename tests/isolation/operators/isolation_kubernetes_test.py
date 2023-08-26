@@ -1,3 +1,5 @@
+import shutil
+
 from isolation.operators.isolation_kubernetes import (
     IsolatedKubernetesPodOperator,
     _set_simple_templates_via_env,
@@ -65,21 +67,30 @@ def test_set_simple_templates_via_env_nothing():
     assert actual == expected, "We give nothing, we get nothing"
 
 
-def test_set_simple_templates_via_env_vars_args_templ(mocker):
+def test_set_simple_templates_via_env_vars_args_templ(mocker, project_root):
+    if (project_root / ".astro").exists():
+        # the monkeypatch messes with these tests, and some other test isn't cleaning up
+        shutil.rmtree(".astro")
     mocker.patch.dict("os.environ", {"AIRFLOW_VAR_FOO": "bar"})
     actual = _set_simple_templates_via_env(("{{ var.value.foo }}",), {}, {})
     expected = {"env_vars": {"AIRFLOW_VAR_FOO": "bar"}}
     assert actual == expected, "We have a var referred to via the args, we push that into the env"
 
 
-def test_set_simple_templates_via_env_vars_kwargs_templ(mocker):
+def test_set_simple_templates_via_env_vars_kwargs_templ(mocker, project_root):
+    if (project_root / ".astro").exists():
+        # the monkeypatch messes with these tests, and some other test isn't cleaning up
+        shutil.rmtree(".astro")
     mocker.patch.dict("os.environ", {"AIRFLOW_VAR_FOO": "bar"})
     actual = _set_simple_templates_via_env((), {"param": "{{ var.value.foo }}"}, {})
     expected = {"env_vars": {"AIRFLOW_VAR_FOO": "bar"}}
     assert actual == expected, "We have a var referred to via the kwargs, we push that into the env"
 
 
-def test_set_simple_templates_via_env_conns_args_templ(mocker):
+def test_set_simple_templates_via_env_conns_args_templ(mocker, project_root):
+    if (project_root / ".astro").exists():
+        # the monkeypatch messes with these tests, and some other test isn't cleaning up
+        shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
@@ -89,7 +100,10 @@ def test_set_simple_templates_via_env_conns_args_templ(mocker):
     assert actual == expected, "we have a connection referred to via the args, we push that into the env"
 
 
-def test_set_simple_templates_via_env_conns_kwargs(mocker):
+def test_set_simple_templates_via_env_conns_kwargs(mocker, project_root):
+    if (project_root / ".astro").exists():
+        # the monkeypatch messes with these tests, and some other test isn't cleaning up
+        shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
@@ -99,7 +113,10 @@ def test_set_simple_templates_via_env_conns_kwargs(mocker):
     assert actual == expected, "we have a conn_id referred to via the kwargs, we push that into the env"
 
 
-def test_set_simple_templates_via_env_conns_kwargs_templ(mocker):
+def test_set_simple_templates_via_env_conns_kwargs_templ(mocker, project_root):
+    if (project_root / ".astro").exists():
+        # the monkeypatch messes with these tests, and some other test isn't cleaning up
+        shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
