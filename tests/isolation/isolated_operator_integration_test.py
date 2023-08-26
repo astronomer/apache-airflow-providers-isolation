@@ -1,4 +1,3 @@
-import shlex
 import time
 from pprint import pprint
 
@@ -35,13 +34,9 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
     mocker.patch.dict(
         "os.environ",
         {
-            # AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE = "localhost:5000/apache-airflow-providers-isolation_a71a84/airflow"
-            # AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY: "quay.io/astronomer/astro-runtime:9.0.0",
             "AIRFLOW_CONN_KUBERNETES_DEFAULT": f"{isolationctl.KUBERNETES_CONN_KEY}={kubernetes_conn_value}",
             "AIRFLOW__ISOLATED_POD_OPERATOR__KUBERNETES_CONN_ID": "kubernetes_default",
-            # "AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_PULL_POLICY": "Never",
             "OPENLINEAGE_DISABLED": "true",
-            "AIRFLOW__LOGGING__LOGGING_LEVEL": "INFO",
         },
     )
     actual_op: IsolatedKubernetesPodOperator = IsolatedOperator(
@@ -61,9 +56,8 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
         "-euxc",
     ], "the container commands are as expected"
     assert container.args == [
-        "python",
-        "-c",
-        "from isolation.hooks.post_isolation import PostIsolationHook\n\nPostIsolationHook.run_isolated_task()\n",
+        'python -c "from isolation.hooks.post_isolation import PostIsolationHook'
+        '\n\nPostIsolationHook.run_isolated_task()\n"',
     ], "the container args are as expected"
     expected_env = [
         {
@@ -95,7 +89,6 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
             assert value == expected_env[i][key], "all the env keys are as expected"
     assert container.image == "quay.io/astronomer/astro-runtime:8.8.0", "Image was set via the operator"
     # ImagePullPolicy - not needed for a non-local image
-    # assert container.image_pull_policy == "Never", "Image pull is never - this was defaulted in ENV"
 
     example_dag = project_root / "isolation" / "example_dags" / "isolation_provider_example_dag.py"
     pod.spec.volumes.extend(
@@ -107,8 +100,6 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
             V1Volume(host_path=V1HostPathVolumeSource(path=str(dist_folder)), name="dist"),
         ]
     )
-    # Run as root
-    # container.security_context = V1SecurityContext(run_as_user=1)
     container.volume_mounts.extend(
         [
             V1VolumeMount(mount_path="/usr/local/airflow/dags", name="dags"),
@@ -118,10 +109,11 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
     # noinspection PyPep8Naming,SpellCheckingInspection
     PYTHONPATH = r'PYTHONPATH="$PYTHONPATH:/home/astro/.local"'
     container.args = [
-        "-c",
-        f"pip install 'apache-airflow-providers-isolation[kubernetes] "
-        f"@ file:///usr/local/airflow/dist/{dist_file.name}' "
-        f"&& {PYTHONPATH} {shlex.join(container.args)}",
+        f"""bash -c \
+        'pip install \
+        "apache-airflow-providers-isolation[kubernetes] @ file:///usr/local/airflow/dist/{dist_file.name}" && \
+        {PYTHONPATH} {container.args[0]}'
+        """
     ]
     # This gets added in with the .execute() so we are mocking it
     # noinspection SpellCheckingInspection
