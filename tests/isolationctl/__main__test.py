@@ -4,10 +4,9 @@ import sys
 from typing import Optional, Pattern
 
 import pytest
+import requests
 from click import BaseCommand
 from click.testing import CliRunner, Result
-
-from isolationctl.__main__ import remove, add, init, deploy, get
 
 # noinspection PyProtectedMember
 from isolationctl import (
@@ -18,6 +17,7 @@ from isolationctl import (
     _get,
     REGISTRY_CONTAINER_URI,
 )
+from isolationctl.__main__ import remove, add, init, deploy, get
 from tests.conftest import manual_tests, stop_docker_container
 
 
@@ -69,6 +69,12 @@ Deployed environment: '{es}/{e}', image: '{REGISTRY_CONTAINER_URI}/[\w\-_]+/airf
         expected_exit_code=expected_exit_code,
         expected_output_pattern=expected_output_pattern,
     )
+    result = [
+        repo
+        for repo in requests.get("http://localhost:5000/v2/_catalog").json()["repositories"]
+        if "apache-airflow-providers-isolation" in repo and "/airflow/example" in repo
+    ]
+    assert len(result), "We correctly pushed an image to our localhost:5000 registry"
 
 
 @manual_tests

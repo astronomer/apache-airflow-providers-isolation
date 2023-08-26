@@ -39,6 +39,7 @@ from isolationctl import (
     REGISTRY_CONTAINER_URI,
     EXAMPLE_ENVIRONMENT,
     KUBERNETES_CONN_KEY,
+    AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY,
 )
 
 log = logging.getLogger(__name__)
@@ -125,7 +126,8 @@ def deploy(
                     build_args={"BASE_IMAGE": parent_image},
                     push=True,
                     get_docker_tag=False,
-                    should_log=False,
+                    should_log=True,
+                    directory=_environment,
                 )
                 main_echo(f"Deployed environment: '{_environment}', image: '{child_tag}'!")
     else:
@@ -273,6 +275,10 @@ def init(
                     tag = build_image("astro-parse", should_log=False)
                     if tag:
                         write_tag_to_dot_env(REGISTRY_CONTAINER_URI, tag, dot_env)
+                        main_echo(
+                            f"Wrote '{AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY}='{REGISTRY_CONTAINER_URI}/{tag}'"
+                            " to  .env..."
+                        )
                     else:
                         main_echo("Unable to find tag from `astro dev parse` output. Skipping...")
             else:
