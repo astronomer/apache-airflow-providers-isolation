@@ -29,7 +29,7 @@ def b64decode_json(s: str) -> Dict[str, Any]:
 
     :raises: RuntimeError if input is not b64
     :raises: RuntimeError if input is not valid JSON
-    >>> b64decode_json("InsnZHMnOiAnZm9vJywgJ3BhcmFtcyc6IHsnZm9vJzogJ2Jhcid9fSI=")
+    >>> b64decode_json("InsnZHMnOiAnZm9vJywgJ3BhcmFtcyc6IHsnZm9vJzogJ2Jhcid9fSI=")  # pragma: allowlist secret
     "{'ds': 'foo', 'params': {'foo': 'bar'}}"
     >>> b64decode_json('eyJmb28iOiAiYmFyIn0=')
     {'foo': 'bar'}

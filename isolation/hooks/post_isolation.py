@@ -78,7 +78,7 @@ def _get_context_via_env(context: Optional[str] = None) -> "Context":  # noqa: F
     of the Airflow Context object and recreate
     >>> from isolation.util import b64encode_json
     >>> r = _get_context_via_env(
-    ...     "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="
+    ...     "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="  # pragma: allowlist secret
     ... ); r['params'], type(r['ds'])
     ({'foo': 'bar'}, <class 'pendulum.datetime.DateTime'>)
     >>> r = _get_context_via_env(b64encode_json({})); r['params'], type(r['ds']) # Empty
