@@ -1,10 +1,13 @@
 import base64
 import binascii
+import hashlib
 import inspect
 import json
 import os
 import re
+import sys
 from importlib import import_module
+from pathlib import Path
 from typing import Dict, Any, Optional, Type, Union, Callable
 
 
@@ -86,6 +89,8 @@ var_object_pattern = re.compile(r"""Variable.get[(]["']([a-zA-Z-_]+)["'][)]""") 
 conn_property_pattern = re.compile(r"""(?=\w*_)conn_id=["']([a-zA-Z-_]+)["']""")  # "conn_id=<>"
 # noinspection RegExpAnonymousGroup
 conn_template_pattern = re.compile(r"[{]{2}\s*conn[.]([a-zA-Z-_]+)[.]?")  # "{{ conn.<> }}"
+# noinspection RegExpAnonymousGroup
+unusual_prefix_pattern = re.compile(r"unusual_prefix_(\w+)_(.+)")
 
 
 def get_and_check_airflow_version() -> float:
@@ -126,6 +131,57 @@ def validate_operator_is_operator(operator: Type["BaseOperator"]) -> None:  # no
         raise RuntimeError(f"{operator} must be a subclass of {BaseOperator}")
 
 
+def fix_unusual_prefix_serialized_dag_issue(qualname, calling_filepath: Optional[str] = None):
+    """
+    Issue with airflow dag serialization stuff modifying module to 'unusual_prefix_xyzabc_file' if file is dags/file.py
+    https://github.com/apache/airflow/blob/88b274c95b212b541ba19918880ae425856212be/airflow/models/dagbag.py#L287
+    "unusual_prefix_cc53bfb719e11e2b18b1d66382f5047c2461068c_isolation_provider_example_dag"  # pragma: allowlist secret
+                    cc53bfb719e11e2b18b1d66382f5047c2461068c
+                    /usr/local/airflow/dags/isolation_provider_example_dag.py
+    """
+    if "unusual_prefix" in qualname:
+        [module, name] = qualname.rsplit(".", 1)
+        matches = unusual_prefix_pattern.match(module).groups()
+        if calling_filepath and matches:
+            _hash, file = matches
+            files = list(Path(calling_filepath).rglob("*.[pP][yY]"))
+            file_results = [path for path in files if file in path.name]
+            if len(file_results):
+                hash_results = [
+                    result
+                    for result in file_results
+                    if hashlib.sha1(str(result.resolve()).encode("utf-8")).hexdigest() == _hash
+                ]
+                if len(hash_results):
+                    if len(hash_results) > 1:
+                        print(
+                            f"Attempting to unwind 'unusual_prefix_*'... found {len(hash_results)} files "
+                            f"with SHA1 {_hash} recursively in {calling_filepath} of {len(files)} files... "
+                            "Using the first..."
+                        )
+
+                    print(f"Attempting to unwind 'unusual_prefix_*'... importing {hash_results[0].parent}...")
+                    sys.path.append(str(hash_results[0].parent))
+                    mod = import_module(file)
+                    print(f"Attempting to unwind 'unusual_prefix_*'... {mod} {mod.__loader__}")
+                    obj = getattr(mod, name)
+                    print(f"Attempting to unwind 'unusual_prefix_*'... {obj}")
+                    return export_to_qualname(obj, validate=False, check_unusual=False)
+                print(
+                    f"Attempting to unwind 'unusual_prefix_*'... "
+                    f"unable to find file with SHA1 {_hash} recursively in {calling_filepath} of {len(files)} files"
+                )
+            print(
+                f"Attempting to unwind 'unusual_prefix_*'... "
+                f"unable to find file {file} recursively from {calling_filepath} in {len(files)} files"
+            )
+        print(
+            f"Attempting to unwind 'unusual_prefix_*'... Either unable to extract hash and file from {qualname}, "
+            f"or unable to get calling file: {calling_filepath}, skipping..."
+        )
+    return qualname
+
+
 def import_from_qualname(qualname) -> Type["BaseOperator"]:  # noqa: F821
     """Turn a.b.c.d.MyOperator into the actual python version
     Steps:
@@ -133,12 +189,18 @@ def import_from_qualname(qualname) -> Type["BaseOperator"]:  # noqa: F821
     2) import a.b.c.d
     3) return a.b.c.d.MyOperator
     """
+    qualname = fix_unusual_prefix_serialized_dag_issue(qualname)
     [module, name] = qualname.rsplit(".", 1)
     imported_module = import_module(module)
     return getattr(imported_module, name)
 
 
-def export_to_qualname(thing: Union[Callable, Type["BaseOperator"]], validate: bool = True) -> str:  # noqa: F821
+def export_to_qualname(
+    thing: Union[Callable, Type["BaseOperator"]],  # noqa: F821
+    validate: Optional[bool] = True,
+    calling_dag_filename: Optional[str] = None,
+    check_unusual: Optional[bool] = True,
+) -> str:
     """Turn an Operator into it's qualified name
     e.g. BashOperator -> 'airflow.operators.bash.BashOperator'
     :raises: RuntimeError if Operator does not inherit from BaseOperator
@@ -148,4 +210,7 @@ def export_to_qualname(thing: Union[Callable, Type["BaseOperator"]], validate: b
     """
     if validate:
         validate_operator_is_operator(thing)
-    return f"{inspect.getmodule(thing).__name__}.{thing.__name__}"
+    qualname = f"{inspect.getmodule(thing).__name__}.{thing.__name__}"
+    if check_unusual:
+        qualname = fix_unusual_prefix_serialized_dag_issue(qualname, calling_dag_filename)
+    return qualname
