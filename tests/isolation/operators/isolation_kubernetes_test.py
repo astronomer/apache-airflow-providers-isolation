@@ -41,6 +41,11 @@ def test_isolated_operator():
             "bHRfYXJncyI6IHt9fX0=",
             "value_from": None,
         },
+        {
+            "name": "__ISOLATED_OPERATOR_POST_ISOLATION",
+            "value": "True",
+            "value_from": None,
+        },
     ]
     expected_node_selector = "bar"
     actual = IsolatedKubernetesPodOperator(

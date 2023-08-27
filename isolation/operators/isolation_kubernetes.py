@@ -309,6 +309,15 @@ def _derive_image(image: Optional[str], default_image_from_env: Optional[str], e
 
 
 # noinspection GrazieInspection,SpellCheckingInspection
+def _set_post_isolation_flag_via_env(isolated_operator_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Set the __ISOLATED_OPERATOR_POST_ISOLATION flag via the env, to prevent attempting to (re)create
+    the IsolatedOperator on the other side, for example if you are loading a function from the DAG itself"""
+    env_vars = isolated_operator_kwargs.get("env_vars", {})
+    env_vars["__ISOLATED_OPERATOR_POST_ISOLATION"] = "True"
+    isolated_operator_kwargs["env_vars"] = env_vars
+    return isolated_operator_kwargs
+
+
 class IsolatedKubernetesPodOperator(KubernetesPodOperator):
     """IsolatedKubernetesPodOperator - run an IsolatedOperator powered by the KubernetesPodOperator
     :param task_id str: Task id, as normal
@@ -363,34 +372,38 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
         *args,
         **kwargs,
     ):
-        self._args = args
-        self._kwargs = kwargs
-        self.isolated_operator_kwargs = isolated_operator_kwargs or {}
-        self.operator = operator
-        self.environment = environment
-        self.image = image
+        if "__ISOLATED_OPERATOR_POST_ISOLATION" in os.environ and os.getenv("__ISOLATED_OPERATOR_POST_ISOLATION"):
+            super().__init__(task_id=task_id)
+        else:
+            self._args = args
+            self._kwargs = kwargs
+            self.isolated_operator_kwargs = isolated_operator_kwargs or {}
+            self.operator = operator
+            self.environment = environment
+            self.image = image
 
-        _remove_un_settable_isolated_operator_kwargs(self.isolated_operator_kwargs)
-        _set_isolated_logger_configs(self.isolated_operator_kwargs)
-        _set_default_namespace_configs(self.isolated_operator_kwargs)
-        _set_pod_name_configs(task_id, self.isolated_operator_kwargs)
-        _set_deferrable(self._kwargs, self.isolated_operator_kwargs)
-        _set_simple_templates_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
-        _set_operator_via_env(self.operator, self.isolated_operator_kwargs)
-        _set_operator_args_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
-        _set_kpo_default_args_from_env(self.isolated_operator_kwargs)
-        default_image_from_env = os.getenv(AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY)
-        image = _derive_image(self.image, default_image_from_env, self.environment)
+            _remove_un_settable_isolated_operator_kwargs(self.isolated_operator_kwargs)
+            _set_isolated_logger_configs(self.isolated_operator_kwargs)
+            _set_default_namespace_configs(self.isolated_operator_kwargs)
+            _set_pod_name_configs(task_id, self.isolated_operator_kwargs)
+            _set_deferrable(self._kwargs, self.isolated_operator_kwargs)
+            _set_simple_templates_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
+            _set_operator_via_env(self.operator, self.isolated_operator_kwargs)
+            _set_operator_args_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
+            _set_kpo_default_args_from_env(self.isolated_operator_kwargs)
+            default_image_from_env = os.getenv(AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY)
+            image = _derive_image(self.image, default_image_from_env, self.environment)
+            _set_post_isolation_flag_via_env(self.isolated_operator_kwargs)
 
-        # noinspection SpellCheckingInspection
-        super().__init__(
-            task_id=task_id,
-            image=image,
-            cmds=shlex.split("/bin/bash -euxc"),
-            arguments=[f'python -c "{fn_to_source_code(run_in_pod)}"'],
-            log_events_on_failure=True,
-            **self.isolated_operator_kwargs,
-        )
+            # noinspection SpellCheckingInspection
+            super().__init__(
+                task_id=task_id,
+                image=image,
+                cmds=shlex.split("/bin/bash -euxc"),
+                arguments=[f'python -c "{fn_to_source_code(run_in_pod)}"'],
+                log_events_on_failure=True,
+                **self.isolated_operator_kwargs,
+            )
 
     def execute(self, context: Context):
         _set_airflow_context_via_env(context, self.env_vars)

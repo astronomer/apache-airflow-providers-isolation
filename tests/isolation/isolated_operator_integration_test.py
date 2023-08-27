@@ -81,6 +81,11 @@ def test_isolated_operator_integration(project_root, build, dist_file, dist_fold
             "value": "eyJhcmdzIjogW10sICJrd2FyZ3MiOiB7ImJhc2hfY29tbWFuZCI6ICJlY2hvIGhpIiwgImRlZmF1bHRfYXJncyI6IHt9fX0=",
             "value_from": None,
         },
+        {
+            "name": "__ISOLATED_OPERATOR_POST_ISOLATION",
+            "value": "True",
+            "value_from": None,
+        },
     ]
     actual_env = container.env
     for i, env in enumerate(actual_env):
