@@ -134,7 +134,7 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
 8. Disable OpenLineage just to clean up the logging, locally, for the example. Then start the Airflow Project.
 
     ```shell
-    echo "\nOPENLINEAGE_DISABLED=true" >> .env 
+    echo "\nOPENLINEAGE_DISABLED=true" >> .env
     astro dev start --no-browser
     ```
 
@@ -224,7 +224,7 @@ of the "heavy lifting" - e.g. XCOMs and Logs
   Examples include `@provide_session`, or `TaskInstance.query(...)`, or
   `ExternalTaskSensor`, or `TriggerDagRunOperator`
 - It's possible other less-traditional parts of Airflow may not yet be supported,
-  due to development effort - e.g. `@task` annotations or Airflow 2.7 Setup and Teardowns
+  due to development effort - e.g. `@task` annotations or Airflow 2.7 Setup and Teardowns - depending on how precisely they are invoked.
 - It is possible that things like `on_failure_callback`s or lineage data may not work - depending on how exactly they
   are invoked -
   but if these things work with via the underlying operator and are set on the underlying operator,
