@@ -68,7 +68,7 @@ def test_e2e(
     s = StringIO()
     # noinspection PyUnresolvedReferences
     try:
-        sh.astro.run(
+        sh.astro.dev.run.dags.test(
             "isolation_provider_example_dag",
             _out=s,
             _err_to_out=True,
