@@ -141,7 +141,8 @@ def fix_unusual_prefix_serialized_dag_issue(qualname, calling_filepath: Optional
                     cc53bfb719e11e2b18b1d66382f5047c2461068c
                     /usr/local/airflow/dags/isolation_provider_example_dag.py
     """
-    if "unusual_prefix" in qualname:
+    # skip this code - at the moment
+    if False and "unusual_prefix" in qualname:
         [module, name] = qualname.rsplit(".", 1)
         matches = unusual_prefix_pattern.match(module).groups()
         if calling_filepath and matches:
