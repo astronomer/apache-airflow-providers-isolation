@@ -151,7 +151,7 @@ def _set_airflow_context_via_env(context: Context, env_vars: List["V1EnvVar"]) -
     """Serialize the Airflow Context
     >>> _set_airflow_context_via_env(Context({"ds": "foo", "params": {"foo": "bar"}}), [])
     [{'name': '__ISOLATED_OPERATOR_AIRFLOW_CONTEXT',
-     'value': 'eyJkcyI6ICJmb28iLCAicGFyYW1zIjogeyJmb28iOiAiYmFyIn19',   # pragma: allowlist secret
+     'value': 'eyJkcyI6ICJmb28iLCAicGFyYW1zIjogeyJmb28iOiAiYmFyIn19',
      'value_from': None}]
     """
     from airflow.providers.cncf.kubernetes.backcompat.backwards_compat_converters import convert_env_vars
