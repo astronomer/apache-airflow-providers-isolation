@@ -100,6 +100,7 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
 
     ```shell
     echo "\npandas==1.4.2" >> environments/example/requirements.txt
+    echo "\nbuild-essential" >> environments/example/packages.txt
     ```
 
 4. Add the http provider to `environments/example/requirements.txt`
