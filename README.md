@@ -141,7 +141,7 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
 9. Run the example DAG
 
     ```shell
-    astro run isolation_provider_example_dag
+    astro dev run dags test isolation_provider_example_dag
     ```
 
 10. 🎉🎉🎉
