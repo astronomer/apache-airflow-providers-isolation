@@ -32,23 +32,35 @@ def docker_registry():
 
 
 @pytest.fixture(scope="function")
-def astro(environments):
-    dockerfile = environments.parent / "Dockerfile"
+def example_dag(project_root):
+    source_dag = project_root / "isolation" / "example_dags" / "isolation_provider_example_dag.py"
+    target_dags = project_root / "dags"
+    target_dags.mkdir(exist_ok=True, parents=True)
+    target_dag = target_dags / "isolation_provider_example_dag.py"
+    shutil.copyfile(source_dag, target_dag)
+    yield target_dag
+    target_dag.unlink(missing_ok=True)
+    shutil.rmtree(target_dags, ignore_errors=True)
+
+
+@pytest.fixture(scope="function")
+def astro(project_root):
+    dockerfile = project_root / "Dockerfile"
     # noinspection SpellCheckingInspection
-    dot_dockerignore = environments.parent / ".dockerignore"
-    dot_gitignore = environments.parent / ".gitignore"
-    dot_astro = environments.parent / ".astro"
-    dot_astro_yaml = environments.parent / ".astro/config.yaml"
-    dot_env = environments.parent / ".env"
-    dags = environments.parent / "dags"
-    tests_dags = environments.parent / "tests" / "dags"
-    tests = environments.parent / "tests"
-    include = environments.parent / "include"
-    plugins = environments.parent / "plugins"
-    readme = environments.parent / "README.md"
-    requirements_txt = environments.parent / "requirements.txt"
-    packages_txt = environments.parent / "packages.txt"
-    airflow_settings_yaml = environments.parent / "airflow_settings.yaml"
+    dot_dockerignore = project_root / ".dockerignore"
+    dot_gitignore = project_root / ".gitignore"
+    dot_astro = project_root / ".astro"
+    dot_astro_yaml = project_root / ".astro/config.yaml"
+    dot_env = project_root / ".env"
+    dags = project_root / "dags"
+    tests_dags = project_root / "tests" / "dags"
+    tests = project_root / "tests"
+    include = project_root / "include"
+    plugins = project_root / "plugins"
+    readme = project_root / "README.md"
+    requirements_txt = project_root / "requirements.txt"
+    packages_txt = project_root / "packages.txt"
+    airflow_settings_yaml = project_root / "airflow_settings.yaml"
 
     folders = (dot_astro, dags, include, plugins, tests_dags, tests)
     files = (
