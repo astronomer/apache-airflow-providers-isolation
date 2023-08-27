@@ -3,7 +3,7 @@ import logging
 import os
 import shlex
 from textwrap import dedent
-from typing import Callable, Dict, Any, Tuple, List, Type, Optional
+from typing import Callable, Dict, Any, Tuple, List, Type, Optional, Union
 
 from airflow.exceptions import AirflowConfigException
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
@@ -162,15 +162,23 @@ def _set_airflow_context_via_env(context: Context, env_vars: List["V1EnvVar"]) -
 
 
 def _set_operator_via_env(
-    operator: Type["BaseOperator"], isolated_operator_kwargs: Dict[str, Any], calling_dag_filename: Optional[str] = None
+    operator: Union[str, Type["BaseOperator"]],
+    isolated_operator_kwargs: Dict[str, Any],
+    calling_dag_filename: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Turn an Operator a direct qualified name reference, so it can get resurrected on the other side
     >>> from airflow.operators.bash import BashOperator; kw = {}; _set_operator_via_env(BashOperator, kw)
     {'env_vars': {'__ISOLATED_OPERATOR_OPERATOR_QUALNAME': 'airflow.operators.bash.BashOperator'}}
+    >>> kw = {}; _set_operator_via_env('airflow.operators.bash.BashOperator', kw)
+    {'env_vars': {'__ISOLATED_OPERATOR_OPERATOR_QUALNAME': 'airflow.operators.bash.BashOperator'}}
     """
     env_vars = isolated_operator_kwargs.get("env_vars", {})
     key = IsolatedOperator.settable_environment_variables[_set_operator_via_env.__name__]
-    env_vars[key] = export_to_qualname(operator, validate=True, calling_dag_filename=calling_dag_filename)
+    env_vars[key] = (
+        operator
+        if isinstance(operator, str)
+        else export_to_qualname(operator, validate=True, calling_dag_filename=calling_dag_filename)
+    )
     isolated_operator_kwargs["env_vars"] = env_vars
     return isolated_operator_kwargs
 

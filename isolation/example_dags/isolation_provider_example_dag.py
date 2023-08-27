@@ -36,7 +36,7 @@ with DAG(
         task_id="isolated_environment_pandas",
         operator=PythonOperator,
         environment="example",
-        python_callable=print_pandas_version,
+        python_callable="dags.isolation_provider_example_dag.print_pandas_version",
         op_args=["Hello!"],
     )
 
