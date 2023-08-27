@@ -48,6 +48,8 @@ def _set_isolated_logger_configs(isolated_operator_kwargs: Dict[str, Any]) -> Di
         env_vars["AIRFLOW__LOGGING__COLORED_CONSOLE_LOG"] = "false"
     if "AIRFLOW__LOGGING__LOG_FORMAT" not in env_vars:
         env_vars["AIRFLOW__LOGGING__LOG_FORMAT"] = "%(levelname)s - %(message)s"
+    if "OPENLINEAGE_DISABLED" not in env_vars:
+        env_vars["OPENLINEAGE_DISABLED"] = "true"
     isolated_operator_kwargs["env_vars"] = env_vars
     return isolated_operator_kwargs
 

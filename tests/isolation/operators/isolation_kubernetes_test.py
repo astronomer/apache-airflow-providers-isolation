@@ -35,10 +35,10 @@ def test_isolated_operator():
         },
         {
             "name": "__ISOLATED_OPERATOR_OPERATOR_ARGS",
-            "value": "eyJhcmdzIjogW10sICJrd2FyZ3MiOiB7ImJhc2hfY29t"
-            "bWFuZCI6ICJlY2hvIHt7IHBhcmFtcy5oaSB9fSIsICJw"
-            "YXJhbXMiOiAieydoaSc6ICdoZWxsbyd9IiwgImRlZmF1"
-            "bHRfYXJncyI6IHt9fX0=",
+            # pragma: allowlist nextline secret
+            "value": "eyJhcmdzIjogW10sICJrd2FyZ3MiOiB7ImJhc2hfY29tbWFuZCI6ICJlY2hvIHt7IHBhcmFtcy5oaSB9fSIsICJwYXJhb"
+            # pragma: allowlist nextline secret
+            "XMiOiAieydoaSc6ICdoZWxsbyd9IiwgImRlZmF1bHRfYXJncyI6IHt9fX0=",
             "value_from": None,
         },
         {
@@ -98,6 +98,7 @@ def test_set_simple_templates_via_env_conns_args_templ(mocker, project_root):
         shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
+        # pragma: allowlist nextline secret
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
     )
     actual = _set_simple_templates_via_env(("{{ conn.foo }}",), {}, {})
@@ -111,6 +112,7 @@ def test_set_simple_templates_via_env_conns_kwargs(mocker, project_root):
         shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
+        # pragma: allowlist nextline secret
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
     )
     actual = _set_simple_templates_via_env((), {"xyz_conn_id": "foo"}, {})
@@ -124,6 +126,7 @@ def test_set_simple_templates_via_env_conns_kwargs_templ(mocker, project_root):
         shutil.rmtree(".astro")
     mocker.patch.dict(
         "os.environ",
+        # pragma: allowlist nextline secret
         {"AIRFLOW_CONN_FOO": "postgres://postgres:postgres@postgres:5432/db"},
     )
     actual = _set_simple_templates_via_env((), {"param": "{{ conn.foo }}"}, {})
