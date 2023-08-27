@@ -91,6 +91,8 @@ conn_property_pattern = re.compile(r"""(?=\w*_)conn_id=["']([a-zA-Z-_]+)["']""")
 conn_template_pattern = re.compile(r"[{]{2}\s*conn[.]([a-zA-Z-_]+)[.]?")  # "{{ conn.<> }}"
 # noinspection RegExpAnonymousGroup
 unusual_prefix_pattern = re.compile(r"unusual_prefix_(\w+)_(.+)")
+# noinspection RegExpAnonymousGroup
+qualname_param_pattern = re.compile(r"[_](.*)(?=_qualname)")
 
 
 def get_and_check_airflow_version() -> float:
