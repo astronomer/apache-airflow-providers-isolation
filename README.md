@@ -131,9 +131,10 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
     astro registry provider add kubernetes
     ```
 
-8. Start the Airflow Project
+8. Disable OpenLineage just to clean up the logging, locally, for the example. Then start the Airflow Project.
 
     ```shell
+    echo "\nOPENLINEAGE_DISABLED=true" >> .env 
     astro dev start --no-browser
     ```
 
