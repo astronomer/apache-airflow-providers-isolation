@@ -170,7 +170,7 @@ with DAG(
         task_id="echo_with_bash_operator",
         operator=BashOperator,
         environment="example",
-        bash_command="echo {{ params.hi }}",
+        bash_command="echo {{ ds }}",
     )
 ```
 
