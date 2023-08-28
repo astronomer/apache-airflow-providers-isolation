@@ -24,7 +24,6 @@ with DAG(
     "isolation_provider_example_dag",
     schedule=None,
     start_date=datetime(1970, 1, 1),
-    params={"hi": "hello"},
 ):
     PythonOperator(
         task_id="parent_pandas",
@@ -44,7 +43,7 @@ with DAG(
         task_id="echo_with_bash_operator",
         operator=BashOperator,
         environment="example",
-        bash_command="echo {{ params.hi }}",
+        bash_command="echo {{ ds }}",
     )
 
     IsolatedOperator(
