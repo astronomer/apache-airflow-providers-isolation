@@ -3,7 +3,7 @@ import logging
 import os
 import shlex
 from textwrap import dedent
-from typing import Callable, Dict, Any, Tuple, List, Type, Optional
+from typing import Callable, Dict, Any, Tuple, List, Type, Optional, Union
 
 from airflow.exceptions import AirflowConfigException
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
@@ -48,6 +48,8 @@ def _set_isolated_logger_configs(isolated_operator_kwargs: Dict[str, Any]) -> Di
         env_vars["AIRFLOW__LOGGING__COLORED_CONSOLE_LOG"] = "false"
     if "AIRFLOW__LOGGING__LOG_FORMAT" not in env_vars:
         env_vars["AIRFLOW__LOGGING__LOG_FORMAT"] = "%(levelname)s - %(message)s"
+    if "OPENLINEAGE_DISABLED" not in env_vars:
+        env_vars["OPENLINEAGE_DISABLED"] = "true"
     isolated_operator_kwargs["env_vars"] = env_vars
     return isolated_operator_kwargs
 
@@ -151,29 +153,39 @@ def _set_airflow_context_via_env(context: Context, env_vars: List["V1EnvVar"]) -
     """Serialize the Airflow Context
     >>> _set_airflow_context_via_env(Context({"ds": "foo", "params": {"foo": "bar"}}), [])
     [{'name': '__ISOLATED_OPERATOR_AIRFLOW_CONTEXT',
-     'value': 'InsnZHMnOiAnZm9vJywgJ3BhcmFtcyc6IHsnZm9vJzogJ2Jhcid9fSI=',
+     'value': 'eyJkcyI6ICJmb28iLCAicGFyYW1zIjogeyJmb28iOiAiYmFyIn19',
      'value_from': None}]
     """
     from airflow.providers.cncf.kubernetes.backcompat.backwards_compat_converters import convert_env_vars
 
     key = IsolatedOperator.settable_environment_variables[_set_airflow_context_via_env.__name__]
-    env_vars.extend(convert_env_vars({key: b64encode_json(context)}))
+    env_vars.extend(convert_env_vars({key: b64encode_json(dict(**context))}))
     return env_vars
 
 
-def _set_operator_via_env(operator: Type["BaseOperator"], isolated_operator_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def _set_operator_via_env(
+    operator: Union[str, Type["BaseOperator"]],
+    isolated_operator_kwargs: Dict[str, Any],
+    calling_dag_filename: Optional[str] = None,
+) -> Dict[str, Any]:
     """Turn an Operator a direct qualified name reference, so it can get resurrected on the other side
     >>> from airflow.operators.bash import BashOperator; kw = {}; _set_operator_via_env(BashOperator, kw)
+    {'env_vars': {'__ISOLATED_OPERATOR_OPERATOR_QUALNAME': 'airflow.operators.bash.BashOperator'}}
+    >>> kw = {}; _set_operator_via_env('airflow.operators.bash.BashOperator', kw)
     {'env_vars': {'__ISOLATED_OPERATOR_OPERATOR_QUALNAME': 'airflow.operators.bash.BashOperator'}}
     """
     env_vars = isolated_operator_kwargs.get("env_vars", {})
     key = IsolatedOperator.settable_environment_variables[_set_operator_via_env.__name__]
-    env_vars[key] = export_to_qualname(operator)
+    env_vars[key] = (
+        operator
+        if isinstance(operator, str)
+        else export_to_qualname(operator, validate=True, calling_dag_filename=calling_dag_filename)
+    )
     isolated_operator_kwargs["env_vars"] = env_vars
     return isolated_operator_kwargs
 
 
-def _set_callable_qualname(d: Dict[str, Any]) -> Dict[str, Any]:
+def _set_callable_qualname(d: Dict[str, Any], calling_dag_filename: Optional[str] = None) -> Dict[str, Any]:
     """Turn xyz_callable=fn into _xyz_callable_qualname=qualname. It gets turned back on the other side
     >>> _set_callable_qualname({}) # empty
     {}
@@ -187,22 +199,29 @@ def _set_callable_qualname(d: Dict[str, Any]) -> Dict[str, Any]:
         value = d[key]
         if isinstance(value, Callable):
             new_key = f"_{key}_qualname"
-            new_value = export_to_qualname(value, validate=False)
+            new_value = export_to_qualname(value, validate=False, calling_dag_filename=calling_dag_filename)
             d[new_key] = new_value
             del d[key]
     return d
 
 
-def _convert_args(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def _convert_args(
+    args: Tuple[Any, ...], kwargs: Dict[str, Any], calling_dag_filename: Optional[str] = None
+) -> Dict[str, Any]:
     """Pack the args and kwargs as json, convert any Callables to qualified names
     >>> _convert_args((), {})
     {'args': (), 'kwargs': {}}
     """
-    kwargs = _set_callable_qualname(kwargs)
+    kwargs = _set_callable_qualname(kwargs, calling_dag_filename)
     return {"args": args, "kwargs": kwargs}
 
 
-def _set_operator_args_via_env(args: Tuple[Any, ...], kwargs: Dict[str, Any], isolated_operator_kwargs: Dict[str, Any]):
+def _set_operator_args_via_env(
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+    isolated_operator_kwargs: Dict[str, Any],
+    calling_dag_filename: Optional[str] = None,
+):
     """Set args and kwargs that were given for the operator to __ISOLATED_OPERATOR_OPERATOR_ARGS
      1) b64 and json encode them
      2) if it is xyz_callable, we rename it to _xyz_callable_qualname and input the qualified name of the fn
@@ -213,7 +232,7 @@ def _set_operator_args_via_env(args: Tuple[Any, ...], kwargs: Dict[str, Any], is
     """
     key = IsolatedOperator.settable_environment_variables[_set_operator_args_via_env.__name__]
     env_vars = isolated_operator_kwargs.get("env_vars", {})
-    env_vars[key] = b64encode_json(_convert_args(args, kwargs))
+    env_vars[key] = b64encode_json(_convert_args(args, kwargs, calling_dag_filename))
     isolated_operator_kwargs["env_vars"] = env_vars
     return isolated_operator_kwargs
 
@@ -381,6 +400,8 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
             self.operator = operator
             self.environment = environment
             self.image = image
+            module = inspect.getmodule(inspect.stack()[1][0])
+            self.calling_dag_filename = module.__file__ if module else None
 
             _remove_un_settable_isolated_operator_kwargs(self.isolated_operator_kwargs)
             _set_isolated_logger_configs(self.isolated_operator_kwargs)
@@ -388,8 +409,10 @@ class IsolatedKubernetesPodOperator(KubernetesPodOperator):
             _set_pod_name_configs(task_id, self.isolated_operator_kwargs)
             _set_deferrable(self._kwargs, self.isolated_operator_kwargs)
             _set_simple_templates_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
-            _set_operator_via_env(self.operator, self.isolated_operator_kwargs)
-            _set_operator_args_via_env(self._args, self._kwargs, self.isolated_operator_kwargs)
+            _set_operator_via_env(self.operator, self.isolated_operator_kwargs, self.calling_dag_filename)
+            _set_operator_args_via_env(
+                self._args, self._kwargs, self.isolated_operator_kwargs, self.calling_dag_filename
+            )
             _set_kpo_default_args_from_env(self.isolated_operator_kwargs)
             default_image_from_env = os.getenv(AIRFLOW__ISOLATED_POD_OPERATOR__IMAGE_KEY)
             image = _derive_image(self.image, default_image_from_env, self.environment)

@@ -1,5 +1,5 @@
+import inspect
 import itertools
-import re
 from copy import copy
 from pathlib import Path
 from typing import Any, Dict, Type, Tuple, List, Optional
@@ -10,6 +10,7 @@ from isolation.util import (
     get_and_check_airflow_version,
     validate_operator_is_operator,
     import_from_qualname,
+    qualname_param_pattern,
 )
 
 XCOM_FILE = "/airflow/xcom/return.json"
@@ -77,7 +78,7 @@ def _get_context_via_env(context: Optional[str] = None) -> "Context":  # noqa: F
     of the Airflow Context object and recreate
     >>> from isolation.util import b64encode_json
     >>> r = _get_context_via_env(
-    ...     "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="
+    ...     "eyJkcyI6ICIxOTcwLTAxLTAxVDAwOjAwOjAwIiwgInBhcmFtcyI6IHsiZm9vIjogImJhciJ9fQ=="  # pragma: allowlist secret
     ... ); r['params'], type(r['ds'])
     ({'foo': 'bar'}, <class 'pendulum.datetime.DateTime'>)
     >>> r = _get_context_via_env(b64encode_json({})); r['params'], type(r['ds']) # Empty
@@ -179,7 +180,7 @@ def _get_callable_qualname(key: str) -> Optional[str]:
     >>> _get_callable_qualname("definitely_not_python_callable")
     >>> _get_callable_qualname("bash_command")
     """
-    maybe_match = re.match(pattern="[_](.*)(?=_qualname)", string=key)
+    maybe_match = qualname_param_pattern.match(key)
     return maybe_match.group(1) if maybe_match is not None else None
 
 
@@ -244,5 +245,16 @@ class PostIsolationHook:
             required_task_args = {"run_id": "RUNID", "state": "running"}
             ti = TaskInstance(task=task, **required_task_args)
             _patch_clear_xcom_data(ti)
+
+            # for different airflow versions - if these fields exist, set them
+            _kwarg_to_default = {"test_mode": True, "session": None}
+
             # noinspection PyProtectedMember
-            ti._execute_task_with_callbacks(context, test_mode=True)
+            ti._execute_task_with_callbacks(
+                context,
+                **{
+                    _kwarg: default
+                    for _kwarg, default in _kwarg_to_default.items()
+                    if _kwarg in inspect.signature(ti._execute_task_with_callbacks).parameters
+                },
+            )

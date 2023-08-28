@@ -74,6 +74,11 @@ def test_bash_isolated_operator_integration(project_root, build, dist_file, dist
             "value_from": None,
         },
         {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
+            "value_from": None,
+        },
+        {
             "name": "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
             "value": "airflow.operators.bash.BashOperator",
             "value_from": None,
@@ -211,6 +216,11 @@ def test_python_isolated_operator_integration(project_root, build, dist_file, di
             "value_from": None,
         },
         {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
+            "value_from": None,
+        },
+        {
             "name": "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
             "value": "airflow.operators.python.PythonOperator",
             "value_from": None,
@@ -289,13 +299,8 @@ def test_python_isolated_operator_integration(project_root, build, dist_file, di
     log = client.read_namespaced_pod_log(pod.metadata.name, pod.metadata.namespace)
     assert "Successfully installed apache-airflow-providers-isolation" in log
     assert (
-        """INFO - Created
-WARNING - No module named 'paramiko'
-WARNING - No module named 'airflow.providers.dbt'
-INFO - Exporting env vars:
-'hello world'
-INFO - Done. Returned value was: None"""
-        in log
+        "INFO - Created\nWARNING - No module named 'paramiko'\nWARNING - No module named 'airflow.providers.dbt'"
+        "\nINFO - Exporting env vars: \n'hello world'\nINFO - Done. Returned value was: None" in log
     )
 
 
@@ -359,6 +364,11 @@ def test_python_example_dag_isolated_operator_integration(
         {
             "name": "AIRFLOW__LOGGING__LOG_FORMAT",
             "value": "%(levelname)s - %(message)s",
+            "value_from": None,
+        },
+        {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
             "value_from": None,
         },
         {
@@ -442,13 +452,8 @@ def test_python_example_dag_isolated_operator_integration(
     log = client.read_namespaced_pod_log(pod.metadata.name, pod.metadata.namespace)
     assert "Successfully installed apache-airflow-providers-isolation" in log
     assert (
-        """INFO - Created
-WARNING - No module named 'paramiko'
-WARNING - No module named 'airflow.providers.dbt'
-INFO - Exporting env vars:
-Pandas Version: 1.5.3
-And printing other stuff for fun:
-arg='hello world', ds=DateTime(1970, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC')), params={'foo': 'bar'}
-INFO - Done. Returned value was: None"""
-        in log
+        "INFO - Created\nWARNING - No module named 'paramiko'\nWARNING - No module named 'airflow.providers.dbt'\n"
+        "INFO - Exporting env vars: \nPandas Version: 1.5.3 \nAnd printing other stuff for fun: \n"
+        "arg='hello world', ds=DateTime(1970, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC')), params={'foo': 'bar'}\n"
+        "INFO - Done. Returned value was: None" in log
     )

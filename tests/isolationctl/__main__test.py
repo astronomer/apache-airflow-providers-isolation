@@ -230,7 +230,7 @@ Folder '{environments.name}/{environment}/' created!
 'requirements\.txt' file found, appending provider\.\.\.
 '{environments.name}/{environment}/packages\.txt' added!
 Environment '{environment}' in '{environments.name}' created!
-Adding 'dags/isolation_provider_example_dag.py' to 'dags/'...
+Download example DAG 'isolation_provider_example_dag.py' to 'dags/'...
 Initialized!\n"""
     )
     # noinspection PyTypeChecker

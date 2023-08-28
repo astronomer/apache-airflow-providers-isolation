@@ -1,4 +1,4 @@
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 # This is needed to allow Airflow to pick up specific metadata fields it needs for certain features.
