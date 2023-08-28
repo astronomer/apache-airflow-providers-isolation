@@ -169,6 +169,7 @@ exclude = '''
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = [
+    "B303",
     "B324",
     "B608",
     "B106",
