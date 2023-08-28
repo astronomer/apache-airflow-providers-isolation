@@ -74,6 +74,11 @@ def test_bash_isolated_operator_integration(project_root, build, dist_file, dist
             "value_from": None,
         },
         {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
+            "value_from": None,
+        },
+        {
             "name": "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
             "value": "airflow.operators.bash.BashOperator",
             "value_from": None,
@@ -208,6 +213,11 @@ def test_python_isolated_operator_integration(project_root, build, dist_file, di
         {
             "name": "AIRFLOW__LOGGING__LOG_FORMAT",
             "value": "%(levelname)s - %(message)s",
+            "value_from": None,
+        },
+        {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
             "value_from": None,
         },
         {
@@ -354,6 +364,11 @@ def test_python_example_dag_isolated_operator_integration(
         {
             "name": "AIRFLOW__LOGGING__LOG_FORMAT",
             "value": "%(levelname)s - %(message)s",
+            "value_from": None,
+        },
+        {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
             "value_from": None,
         },
         {

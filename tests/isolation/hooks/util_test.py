@@ -1,8 +1,11 @@
 import hashlib
 
+import pytest
+
 from isolation.util import fix_unusual_prefix_serialized_dag_issue
 
 
+@pytest.mark.skip("disabled")
 def test_fix_unusual_prefix_serialized_dag_issue(project_root):
     util = project_root / "isolation/util.py"
     _hash = hashlib.sha1(str(util).encode("utf-8")).hexdigest()

@@ -29,6 +29,11 @@ def test_isolated_operator():
             "value_from": None,
         },
         {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
+            "value_from": None,
+        },
+        {
             "name": "__ISOLATED_OPERATOR_OPERATOR_QUALNAME",
             "value": "airflow.operators.bash.BashOperator",
             "value_from": None,
@@ -44,11 +49,6 @@ def test_isolated_operator():
         {
             "name": "__ISOLATED_OPERATOR_POST_ISOLATION",
             "value": "True",
-            "value_from": None,
-        },
-        {
-            "name": "OPENLINEAGE_DISABLED",
-            "value": "true",
             "value_from": None,
         },
     ]
