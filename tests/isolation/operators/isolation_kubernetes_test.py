@@ -46,6 +46,11 @@ def test_isolated_operator():
             "value": "True",
             "value_from": None,
         },
+        {
+            "name": "OPENLINEAGE_DISABLED",
+            "value": "true",
+            "value_from": None,
+        },
     ]
     expected_node_selector = "bar"
     actual = IsolatedKubernetesPodOperator(
