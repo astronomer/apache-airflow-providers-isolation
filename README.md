@@ -117,34 +117,27 @@ This quickstart utilizes a local Kubernetes cluster, and a local image registry 
     isolationctl deploy --local-registry
     ```
 
-6. Add the example DAG, which invokes Pandas with two separate versions in two tasks in the same DAG, and a few other
-   tasks
-
-    ```shell
-    wget --output-document dags/isolation_provider_example_dag.py https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/main/isolation/example_dags/isolation_provider_example_dag.py
-    ```
-
-7. Add the Kubernetes Provider to the Astro project (_not required_ - it is a transitive dependency - but always good to
+6. Add the Kubernetes Provider to the Astro project (_not required_ - it is a transitive dependency - but always good to
    be explicit)
 
     ```shell
     astro registry provider add kubernetes
     ```
 
-8. Disable OpenLineage just to clean up the logging, locally, for the example. Then start the Airflow Project.
+7. Disable OpenLineage just to clean up the logging, locally, for the example. Then start the Airflow Project.
 
     ```shell
     echo "\nOPENLINEAGE_DISABLED=true" >> .env
     astro dev start --no-browser
     ```
 
-9. Run the example DAG
+8. Run the example DAG
 
     ```shell
     astro dev run dags test isolation_provider_example_dag
     ```
 
-10. 🎉🎉🎉
+9. 🎉🎉🎉
 
 # Installation
 

@@ -219,7 +219,7 @@ def init(
         main_echo("Initializing --example environment...")
         ctx.invoke(add, env=EXAMPLE_ENVIRONMENT, yes=yes, folder=folder)
 
-        if not confirm_or_skip("Adding 'dags/isolation_provider_example_dag.py' to 'dags/'...", yes):
+        if not confirm_or_skip("Download example DAG 'isolation_provider_example_dag.py' to 'dags/'...", yes):
             example_dag = (
                 "https://raw.githubusercontent.com/astronomer/apache-airflow-providers-isolation/"
                 "main/isolation/example_dags/isolation_provider_example_dag.py"
