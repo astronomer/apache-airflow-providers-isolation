@@ -15,6 +15,8 @@
 Created with ❤️ by the CSE Team @ Astronomer
 </h3>
 
+# ⚠️ This project is a proof-of-concept and not officially supported nor maintained by Astronomer ⚠️
+
 <!-- TOC -->
 
 * [Summary](#summary)
